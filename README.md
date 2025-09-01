@@ -1,1 +1,2 @@
-# Pokobe_admin
+# ぽこべぇ管理人Bot
+かざま隊の集いの場の管理をするぽこべぇBotのGitHubです。
