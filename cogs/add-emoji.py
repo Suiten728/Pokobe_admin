@@ -10,7 +10,6 @@ class Emoji(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print(f"✅ ログイン完了: {self.bot.user}（{self.bot.user.id}）")
 
         channel = self.bot.get_channel(TARGET_CHANNEL_ID)
         if not channel:

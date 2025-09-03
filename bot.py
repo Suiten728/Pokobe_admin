@@ -18,6 +18,9 @@ initial_cogs = [
     "cogs.ping",
     "cogs.eval",
     "cogs.add-emoji",
+    "cogs.rank",
+    "cogs.wellcome",
+    "cogs.tiktok",
 ]
 
 # Bot本体クラス
