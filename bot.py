@@ -18,6 +18,7 @@ initial_cogs = [
     "cogs.ping",
     "cogs.eval",
     "cogs.add-emoji",
+    "cogs.lock",
     "cogs.rank",
     "cogs.wellcome",
     "cogs.tiktok",
