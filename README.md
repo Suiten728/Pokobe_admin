@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="ja">
 # ぽこべぇ管理人Bot
 ぽこべぇ管理人Botはかざま隊の集いの場の管理をします。
 <button type="button" onclick="location.href='https://discord.gg/2wF8e8YuQY'">かざま隊の集いの場へ参加する</button>
@@ -11,3 +13,4 @@
 そのチャンネルでそのメッセージを固定します。[message_id]はコマンド実行するチャンネル内にないとエラーが出ます。</br>
 ## 🔵P!eval
 コード実行コマンド(is_owner)
+</html>
