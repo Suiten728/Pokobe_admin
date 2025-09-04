@@ -1,8 +1,6 @@
 # ぽこべぇ管理人Bot
 ぽこべぇ管理人Botはかざま隊の集いの場の管理をします。
-<a href="https://discord.gg/2wF8e8YuQY">
-<button type="button">かざま隊の集いの場へ参加する</button>
-</a>
+<button type="button" onclick="location.href='https://discord.gg/2wF8e8YuQY'">かざま隊の集いの場へ参加する</button>
 
 # 機能
 ぽこべぇ管理人Botに追加する機能は以下の通りです。</br>
