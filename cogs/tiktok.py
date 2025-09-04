@@ -7,7 +7,7 @@ import os
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1412831660185096333/xUSZbCxCNtCL-e1s5uRsS_7JzigzMYN0sLSU9w9XBrqv474n5v-CpOkI84vPUv_p68bq"
 USERNAME = "kazamairoha_hololive"
-STATE_FILE = "last_video.json"
+STATE_FILE = "data/last_video.json"
 
 def get_last_video_id():
     if os.path.exists(STATE_FILE):
