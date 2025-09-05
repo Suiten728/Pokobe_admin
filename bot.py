@@ -13,17 +13,6 @@ if TOKEN is None:
 # Intents
 intents = discord.Intents.all()
 
-# 読み込むCog一覧
-initial_cogs = [
-    "cogs.ping",
-    "cogs.eval",
-    "cogs.add-emoji",
-    "cogs.lock",
-    "cogs.rank",
-    "cogs.wellcome",
-    "cogs.tiktok",
-]
-
 # Bot本体クラス
 class MyBot(commands.Bot):
     def __init__(self):
@@ -34,12 +23,16 @@ class MyBot(commands.Bot):
         )
 
     async def setup_hook(self):
-        for cog in initial_cogs:
-            try:
-                await self.load_extension(cog)
-                print(f"✅ Cogロード成功: {cog}")
-            except Exception as e:
-                print(f"❌ Cogロード失敗: {cog}\n{e}")
+        # cogsフォルダ内の.pyファイルをすべて読み込む
+        for filename in os.listdir("./cogs"):
+            if filename.endswith(".py"):
+                cog_name = f"cogs.{filename[:-3]}"  # 拡張子を除く
+                try:
+                    await self.load_extension(cog_name)
+                    print(f"✅ Cogロード成功: {cog_name}")
+                except Exception as e:
+                    print(f"❌ Cogロード失敗: {cog_name}\n{e}")
+        # スラッシュコマンド同期
         synced = await self.tree.sync()
         print(f"✅ スラッシュコマンド登録数: {len(synced)}")
 

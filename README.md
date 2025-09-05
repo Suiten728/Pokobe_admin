@@ -1,16 +1,13 @@
-<!DOCTYPE html>
-<html lang="ja">
 # ぽこべぇ管理人Bot
 ぽこべぇ管理人Botはかざま隊の集いの場の管理をします。
-<button type="button" onclick="location.href='https://discord.gg/2wF8e8YuQY'">かざま隊の集いの場へ参加する</button>
 
 # 機能
-ぽこべぇ管理人Botに追加する機能は以下の通りです。</br>
+ぽこべぇ管理人Botにはたくさんの機能が備え付けられています。追加予定及び追加済機能は以下のとおりです。</br>
 💡実装済みは🔵、未実装又は協議中は🔴で分けています。</br>
 ## 🔵P!ping 
 レイテンシーを計測します。スラッシュコマンドでも可能です。</br>
 ## 🔵P!lock [message_id]
 そのチャンネルでそのメッセージを固定します。[message_id]はコマンド実行するチャンネル内にないとエラーが出ます。</br>
+
 ## 🔵P!eval
 コード実行コマンド(is_owner)
-</html>
