@@ -19,14 +19,16 @@ class Welcome(commands.Cog):
         # 埋め込みメッセージ
         embed = discord.Embed(
             title="🎉 サーバーへようこそ！",
-            description=f"{member.mention} さん、参加ありがとうございます！\nゆっくりしていってください😊",
+            description=f"{member.mention} さん、こんにちは！"
+                        f"かざま隊の集いの場へようこそ！ここではかざま隊と話せる場所を"
+                        f"⚠セキュリティ上、このサーバーに入ってから10分しなければメッセージは送信できません。お待ち下さい。cd d\\",
             color=discord.Color.green()
         )
         embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
         embed.set_footer(text=f"現在のメンバー数: {member.guild.member_count}")
 
         # 画像を埋め込みに追加（任意のURL）
-        embed.set_image(url="https://example.com/welcome_banner.png")
+        embed.set_image(url="https://images.frwi.net/data/images/a7c85085-12ca-46e6-8683-10cbefa0470c.png")
 
         await channel.send(embed=embed)
 
