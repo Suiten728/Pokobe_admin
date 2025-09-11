@@ -248,7 +248,6 @@ class VerificationCog(commands.Cog):
             role = message.guild.get_role(VERIFIED_ROLE_ID)
             log = self.bot.get_channel(LOG_CHANNEL_ID)
 
-            # まずはメッセージ削除（失敗しても続行）
             try:
                 await message.delete()
             except discord.Forbidden:
@@ -262,17 +261,27 @@ class VerificationCog(commands.Cog):
             else:
                 await message.channel.send("⚠ ロールが見つかりませんでした。VERIFIED_ROLE_ID を確認してください。", delete_after=8)
 
-            # DM 通知は任意（失敗しても無視）
             try:
                 await message.author.send("✅ 認証が完了しました！ようこそ！")
-                await log.send("認証しました")
+
+                # ここでログを出す
+                joined_at = message.author.joined_at.strftime("%Y-%m-%d %H:%M:%S") if message.author.joined_at else "不明"
+                created_at = message.author.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                verified_at = discord.utils.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+                await log.send(
+                    f"✅ {message.author.mention} が認証されました！\n"
+                    f"👤ユーザー名: {message.author} (ID: {message.author.id})\n"
+                    f"🔍サーバー参加時刻: {joined_at}\n"
+                    f"🏵認証時刻: {verified_at}\n"
+                    f"📅アカウント作成日: {created_at}"
+                )
+
             except discord.Forbidden:
                 pass
 
-            # ワンタイムなので消す
             verification_keywords.pop(user_id, None)
         else:
-            # 他コマンド連携
             await self.bot.process_commands(message)
 
 

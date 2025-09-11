@@ -5,7 +5,14 @@ import aiohttp
 import json
 import os
 
-WEBHOOK_URL = "https://discord.com/api/webhooks/1412831660185096333/xUSZbCxCNtCL-e1s5uRsS_7JzigzMYN0sLSU9w9XBrqv474n5v-CpOkI84vPUv_p68bq"
+from dotenv import load_dotenv
+
+# .envからウェブフック読み込み
+load_dotenv(dotenv_path="ci/.env")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+if WEBHOOK_URL is None:
+    raise ValueError("WEBHOOK_URL が見つかりません")
+
 USERNAME = "kazamairoha_hololive"
 STATE_FILE = "data/last_video.json"
 
