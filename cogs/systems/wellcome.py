@@ -139,7 +139,7 @@ class WelcomeCog(commands.Cog):
         )
         embed.set_image(url="attachment://welcome.png")  # 生成画像を添付する
 
-        channel = self.get_channel(CHANNEL_ID)
+        channel = self.bot.get_channel(CHANNEL_ID)
         if channel:
             file = await generate_welcome_image(member)
             await channel.send(

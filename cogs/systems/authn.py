@@ -36,7 +36,7 @@ def build_guides():
         "en": discord.Embed(
             title="Authentication Method Guide",
             description="Welcome to the authentication method guide!\n\n"
-                        "In the WeatherPlanet fan server, you can access specific channels by completing authentication.\n\n",
+                        "In the Kazamatai gathering place, you can access specific channels by completing authentication.\n\n",
             color=discord.Color.blue()
          ).add_field(name="\n\n**__Step 1__**\n\n",value="To make authentication easier, we have separated it by device type. Please select the appropriate authentication method for your device.\n\nPress the button and if you see '✅️Check your DM', it was successful. If you see '❌️Unable to send DM. Please allow DMs', please check if DMs are allowed.", inline=False)
           .add_field(name="\n\n**__Step 2__**\n\n",value="An authentication keyword will be sent to your DM.\n\nFor mobile devices, long-press to copy the keyword. For PC, press the button on the right to copy it.", inline=False)
@@ -45,7 +45,7 @@ def build_guides():
         "zh": discord.Embed(
             title="认证方法指南",
             description="欢迎来到认证方法指南！\n\n"
-                        "在WeatherPlanet粉丝服务器中，通过完成认证可以访问特定频道。\n\n",
+                        "在風真隊粉丝服务器中，通过完成认证可以访问特定频道。\n\n",
             color=discord.Color.blue()
          ).add_field(name="\n\n**__步骤1__**\n\n",value="为了简化认证，我们按设备类型进行了分类。请选择适合您设备的认证方法。\n\n点击按钮，如果看到“✅️请检查您的DM”，则表示成功。如果看到“❌️无法发送DM。请允许DM”，请检查是否允许DM。", inline=False)
           .add_field(name="\n\n**__步骤2__**\n\n",value="认证关键词将发送到您的DM。\n\n对于手机设备，长按以复制关键词。对于PC，请点击右侧按钮复制。", inline=False)

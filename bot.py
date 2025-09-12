@@ -23,14 +23,17 @@ class MyBot(commands.Bot):
         )
 
     async def setup_hook(self):
-        # cogsフォルダ内の.pyファイルをすべて読み込む
-        for filename in os.listdir("./cogs"):
+        # --- cogs以下を再帰的に探索して.pyファイルをロード ---
+     for root, dirs, files in os.walk("./cogs"):
+        for filename in files:
             if filename.endswith(".py"):
-                cog_name = f"cogs.{filename[:-3]}"  # 拡張子を除く
-                try:
+                 rel_path = os.path.relpath(os.path.join(root, filename), ".")
+                 cog_name = rel_path.replace(os.sep, ".")[:-3] 
+
+                 try:
                     await self.load_extension(cog_name)
                     print(f"✅ Cogロード成功: {cog_name}")
-                except Exception as e:
+                 except Exception as e:
                     print(f"❌ Cogロード失敗: {cog_name}\n{e}")
         # スラッシュコマンド同期
         synced = await self.tree.sync()
