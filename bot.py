@@ -23,19 +23,19 @@ class MyBot(commands.Bot):
         )
 
     async def setup_hook(self):
-        # --- cogs以下を再帰的に探索して.pyファイルをロード ---
-     for root, dirs, files in os.walk("./cogs"):
-        for filename in files:
-            if filename.endswith(".py"):
-                 rel_path = os.path.relpath(os.path.join(root, filename), ".")
-                 cog_name = rel_path.replace(os.sep, ".")[:-3] 
+        # --- Cogをまとめてロード ---
+        for root, _, files in os.walk("./cogs"):
+            for filename in files:
+                if filename.endswith(".py"):
+                    rel_path = os.path.relpath(os.path.join(root, filename), ".")
+                    cog_name = rel_path.replace(os.sep, ".")[:-3]
+                    try:
+                        await self.load_extension(cog_name)
+                        print(f"✅ Cogロード成功: {cog_name}")
+                    except Exception as e:
+                        print(f"❌ Cogロード失敗: {cog_name}\n{e}")
 
-                 try:
-                    await self.load_extension(cog_name)
-                    print(f"✅ Cogロード成功: {cog_name}")
-                 except Exception as e:
-                    print(f"❌ Cogロード失敗: {cog_name}\n{e}")
-        # スラッシュコマンド同期
+        # --- スラッシュコマンド同期はここで1回だけ ---
         synced = await self.tree.sync()
         print(f"✅ スラッシュコマンド登録数: {len(synced)}")
 
