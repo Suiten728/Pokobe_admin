@@ -21,12 +21,12 @@ def init_db():
 
 def add_message(user_id: int):
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    c = conn.cursor() 
     c.execute("INSERT OR IGNORE INTO users (user_id, messages) VALUES (?, 0)", (user_id,))
     c.execute("UPDATE users SET messages = messages + 1 WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
-
+    
 def get_user(user_id: int):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()

@@ -13,14 +13,13 @@ class RuleLanguageSelect(discord.ui.Select):
     def __init__(self, rules_data: dict):
         self.rules_data = rules_data
         options = [
-            discord.SelectOption(label="日本語", value="ja", emoji="🇯🇵"),
             discord.SelectOption(label="English", value="en", emoji="🇺🇸"),
             discord.SelectOption(label="中文", value="zh", emoji="🇨🇳"),
             discord.SelectOption(label="한국어", value="ko", emoji="🇰🇷"),
             discord.SelectOption(label="Bahasa Indonesia", value="id", emoji="🇮🇩"),
         ]
         super().__init__(
-            placeholder="🌐 言語を選択 / Select Language",
+            placeholder="🌐 言語を変更 | Change Language",
             options=options,
             custom_id="rules_lang_select"
         )

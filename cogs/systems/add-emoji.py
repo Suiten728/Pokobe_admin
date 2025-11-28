@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 
 TARGET_CHANNEL_ID = 1363511340605509692
-EMOJIS = ["<:1_welcome:1412085628232794272>", "👍"]  
+EMOJIS = ["<:Welcome:1428991245107331235>", "👍"]  
 
 class Emoji(commands.Cog):
     def __init__(self, bot):
