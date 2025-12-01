@@ -19,7 +19,7 @@ class Status(commands.Cog):
 
         # ランダムにステータス切り替え（例：2パターン）
         statuses = [
-            f"ver.1.12.2┃ping:{ping}ms",
+            f"ver 1.12.5┃ping:{ping}ms",
             f"Powered by Suiten┃ping:{ping}ms",
         ]
 
