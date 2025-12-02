@@ -11,7 +11,7 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 import aiohttp
 
-from ci.welcome_setting import (
+from ci.welcome_set import (
     WELCOME_CHANNEL_ID,
     RULE_CHANNEL_ID ,
     AUTH_CHANNEL_ID ,
@@ -121,7 +121,7 @@ async def create_welcome_image(user: discord.Member):
     text_w = draw.textlength(user.name, font=font)
     draw.text(((bg.width - text_w) / 2, 330), user.name, font=font, fill="white")
 
-    out_path = f"data/welcome_{user.id}.png"
+    out_path = f"pngdata/welcome_{user.id}.png"
     bg.save(out_path)
     return out_path
 

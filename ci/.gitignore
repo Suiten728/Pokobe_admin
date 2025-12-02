@@ -1,4 +1,4 @@
 .env
-ai_setting.py
+ai_set.py
 setting.py
-welcome_setting.py
+welcome_set.py

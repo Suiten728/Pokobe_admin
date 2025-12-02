@@ -2,7 +2,7 @@ import json
 import aiohttp
 import discord
 from discord.ext import commands
-from ci.ai_setting import (
+from ci.ai_set import (
     GEMINI_API_KEY, TARGET_CHANNEL_ID,
     WEBHOOK_URL, WEBHOOK_NAME,
     USER_MAX_LENGTH, GEMINI_MAX_LENGTH,
