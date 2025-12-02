@@ -1,226 +1,291 @@
-# ======================================================
-# cogs/welcome.py  （完全版）
-# ======================================================
-
+# cogs/welcome.py
 import discord
 from discord.ext import commands
-from discord import app_commands
-import json
-import os
-import io
-from PIL import Image, ImageDraw, ImageFont
+from discord import ui
 import aiohttp
-
-from ci.welcome_set import (
+from PIL import Image, ImageDraw, ImageFont
+import io
+import os
+import json
+import random
+from ci.welcome_set import(
     WELCOME_CHANNEL_ID,
-    RULE_CHANNEL_ID ,
-    AUTH_CHANNEL_ID ,
+    RULE_CHANNEL_ID,
+    AUTH_CHANNEL_ID,
     INTRO_CHANNEL_ID,
     BG_PATH,
     FONT_PATH
-    )
+)
 
-
-LANG_FILE = "data/language.json"
+# 永続化ファイル
+LANG_BY_GUILD = "data/lang_by_guild.json"
+LANG_MASTER_FILE = "data/languages.json"
 os.makedirs("data", exist_ok=True)
 
-# 言語データ：翻訳テキスト（前メッセージであなたと作った内容）
-LANGUAGES = {
-    "ja": {
-        "title": "🪄 Welcome to KazamaTai no Tudoinoba",
-        "desc": "🎉 サーバーにようこそ！隊士が集うこの場でたくさんの思い出を作りましょう！",
-        "auth": "🏵 まずは <#{auth}> で認証をしてサーバーに参加しましょう！",
-        "intro": "📝 自己紹介は <#{intro}> へどうぞ！",
-        "warn": "⚠️ 安全上、このサーバーに入ってから10分しなければメッセージは送信できません！",
-        "rule_btn": "📖 サーバールールを確認",
-        "auth_btn": "🏵 認証を始める",
-        "intro_btn": "📝 自己紹介はこちら",
-        "lang_label": "言語変更 / Change Language"
-    },
-    "en": {
-        "title": "🪄 Welcome to KazamaTai no Tudoinoba",
-        "desc": "🎉 Welcome to the server! Make lots of great memories together with fellow members!",
-        "auth": "🏵 First, please complete the verification in <#{auth}>!",
-        "intro": "📝 Introduce yourself in <#{intro}>!",
-        "warn": "⚠️ For safety reasons, you cannot send messages for 10 minutes after joining.",
-        "rule_btn": "📖 View Server Rules",
-        "auth_btn": "🏵 Start Verification",
-        "intro_btn": "📝 Go to Introduction",
-        "lang_label": "Change Language"
-    },
-    "ko": {
-        "title": "🪄 KazamaTai no Tudoinoba 서버에 오신 것을 환영합니다!",
-        "desc": "🎉 이곳은 대사들이 모이는 공간입니다. 함께 멋진 추억을 만들어가요!",
-        "auth": "🏵 먼저 <#{auth}> 채널에서 인증을 완료해주세요!",
-        "intro": "📝 자기소개는 <#{intro}> 에 작성해주세요!",
-        "warn": "⚠️ 보안상, 참여 후 10분간 메시지를 보낼 수 없습니다.",
-        "rule_btn": "📖 서버 규칙 확인",
-        "auth_btn": "🏵 인증 시작하기",
-        "intro_btn": "📝 자기소개하러 가기",
-        "lang_label": "언어 변경"
-    },
-    "zh": {
-        "title": "🪄 欢迎来到 KazamaTai no Tudoinoba!",
-        "desc": "🎉 欢迎加入服务器！愿你与这里的成员们一起创造许多美好回忆！",
-        "auth": "🏵 请先在 <#{auth}> 完成认证！",
-        "intro": "📝 自我介绍请前往 <#{intro}>！",
-        "warn": "⚠️ 出于安全原因，加入后需要等待 10 分钟才能发送消息。",
-        "rule_btn": "📖 查看服务器规则",
-        "auth_btn": "🏵 开始认证",
-        "intro_btn": "📝 前往自我介绍",
-        "lang_label": "语言选择"
-    },
-    "id": {
-        "title": "🪄 Selamat datang di KazamaTai no Tudoinoba!",
-        "desc": "🎉 Selamat datang di server! Mari buat banyak kenangan indah bersama!",
-        "auth": "🏵 Silakan lakukan verifikasi di <#{auth}>!",
-        "intro": "📝 Perkenalkan diri di <#{intro}>!",
-        "warn": "⚠️ Demi keamanan, kamu tidak bisa mengirim pesan selama 10 menit pertama.",
-        "rule_btn": "📖 Lihat Peraturan Server",
-        "auth_btn": "🏵 Mulai Verifikasi",
-        "intro_btn": "📝 Pergi ke Perkenalan",
-        "lang_label": "Ganti Bahasa"
-    }
-}
+# load master language file
+with open(LANG_MASTER_FILE, "r", encoding="utf-8") as f:
+    LANG_MASTER = json.load(f)
 
+# ensure guild lang file exists
+if not os.path.exists(LANG_BY_GUILD):
+    with open(LANG_BY_GUILD, "w", encoding="utf-8") as f:
+        json.dump({}, f, ensure_ascii=False, indent=4)
 
-def load_lang():
-    if not os.path.exists(LANG_FILE):
-        with open(LANG_FILE, "w", encoding="utf-8") as f:
-            json.dump({}, f, ensure_ascii=False, indent=4)
-    with open(LANG_FILE, "r", encoding="utf-8") as f:
+def load_guild_lang():
+    with open(LANG_BY_GUILD, "r", encoding="utf-8") as f:
         return json.load(f)
 
+def save_guild_lang(d):
+    with open(LANG_BY_GUILD, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False, indent=4)
 
-def save_lang(data):
-    with open(LANG_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+# ---------- 画像合成 ----------
+async def create_welcome_image(member: discord.Member):
+    # 背景
+    try:
+        bg = Image.open(BG_PATH).convert("RGBA")
+    except Exception:
+        # fallback blank
+        bg = Image.new("RGBA", (1024, 520), (24, 24, 24, 255))
 
-
-# ================================
-# 画像合成: 背景 + 新規ユーザーのアイコン
-# ================================
-async def create_welcome_image(user: discord.Member):
-    bg = Image.open(BG_PATH).convert("RGBA")
-
+    # avatar fetch (use display_avatar to get dynamic)
+    avatar_url = str(member.display_avatar.url)
     async with aiohttp.ClientSession() as session:
-        async with session.get(user.avatar.url) as resp:
-            avatar_data = await resp.read()
+        async with session.get(avatar_url) as resp:
+            avatar_bytes = await resp.read()
 
-    avatar = Image.open(io.BytesIO(avatar_data)).convert("RGBA")
-    avatar = avatar.resize((260, 260))
+    avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
 
-    # 中央へ配置
-    ax = (bg.width - avatar.width) // 2
-    ay = 50
-    bg.paste(avatar, (ax, ay), avatar)
+    # make circular and larger (360px)
+    size = 360
+    avatar = avatar.resize((size, size))
+    mask = Image.new("L", (size, size), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.ellipse((0, 0, size, size), fill=255)
+    avatar.putalpha(mask)
 
-    # ユーザー名を描画
+    bg_w, bg_h = bg.size
+    pos_x = (bg_w - size) // 2
+    pos_y = 30
+    bg.paste(avatar, (pos_x, pos_y), avatar)
+
+    # draw username under avatar
+    try:
+        font = ImageFont.truetype(FONT_PATH, 56)
+    except Exception:
+        font = ImageFont.load_default()
+
     draw = ImageDraw.Draw(bg)
-    font = ImageFont.truetype(FONT_PATH, 48)
-    text_w = draw.textlength(user.name, font=font)
-    draw.text(((bg.width - text_w) / 2, 330), user.name, font=font, fill="white")
+    name = member.display_name
+    # center text
+    try:
+        text_w = draw.textlength(name, font=font)
+    except Exception:
+        text_w = font.getsize(name)[0]
 
-    out_path = f"pngdata/welcome_{user.id}.png"
-    bg.save(out_path)
-    return out_path
+    text_x = (bg_w - text_w) / 2
+    text_y = pos_y + size + 18
+    # outline then fill
+    for dx, dy in [(-2,-2),(2,-2),(-2,2),(2,2)]:
+        draw.text((text_x+dx, text_y+dy), name, font=font, fill=(0,0,0))
+    draw.text((text_x, text_y), name, font=font, fill=(255,255,255))
 
+    # return BytesIO
+    bio = io.BytesIO()
+    bg.save(bio, "PNG")
+    bio.seek(0)
+    return bio
 
-# ================================
-# Language Select UI
-# ================================
-class LanguageSelect(discord.ui.Select):
-    def __init__(self, guild_id):
+# ---------- Helpers to build embed-like content ----------
+def build_contents_for_lang(lang_code: str, guild_id: int):
+    lang = LANG_MASTER.get(lang_code, LANG_MASTER.get("ja"))
+    # fill channel placeholders with actual IDs
+    auth_txt = lang.get("auth", "").format(auth=AUTH_CHANNEL_ID)
+    intro_txt = lang.get("intro", "").format(intro=INTRO_CHANNEL_ID)
+    return {
+        "title": lang.get("title"),
+        "desc": lang.get("desc"),
+        "auth": auth_txt,
+        "intro": intro_txt,
+        "warn": lang.get("warn"),
+        "rule_btn": lang.get("rule_btn"),
+        "auth_btn": lang.get("auth_btn"),
+        "intro_btn": lang.get("intro_btn"),
+        "lang_label": lang.get("lang_label"),
+        "divider": lang.get("divider", "──────────────────────────")
+    }
+
+# ---------- LayoutView / embed-like UI ----------
+# Use LayoutView and Section/TextDisplay when available (discord.py v2.6+)
+USE_LAYOUT = hasattr(ui, "LayoutView") and hasattr(ui, "Section")
+
+ParentView = ui.LayoutView if USE_LAYOUT else ui.View
+
+class WelcomeLayout(ParentView):
+    def __init__(self, guild_id: int):
+        # LayoutView doesn't accept timeout by default; for fallback to View keep compatibility
+        if USE_LAYOUT:
+            super().__init__(timeout=None)
+        else:
+            super().__init__(timeout=None)
+        self.guild_id = guild_id
+        # We'll build sections dynamically in a factory function elsewhere
+
+# Custom select/listener with persistent custom_id per guild
+class GuildLanguageSelect(ui.Select):
+    def __init__(self, guild_id: int):
         options = [
             discord.SelectOption(label="日本語", value="ja",emoji="🇯🇵"),
             discord.SelectOption(label="English", value="en",emoji="🇺🇸"),
-            discord.SelectOption(label="한국어", value="ko",emoji="🇰🇷"),
             discord.SelectOption(label="中文", value="zh",emoji="🇨🇳"),
+            discord.SelectOption(label="한국어", value="ko",emoji="🇰🇷"),
             discord.SelectOption(label="Bahasa Indonesia", value="id",emoji="🇮🇩"),
+            discord.SelectOption(label="Español", value="es",emoji="🇪🇸"),
+            discord.SelectOption(label="العربية", value="ar",emoji="🇸🇦"),
         ]
-
-        super().__init__(placeholder="🌐 言語を変更 | Change Language", options=options)
+        # custom_id includes guild to allow persistent multiple guilds
+        custom_id = f"welcome_lang_select_{guild_id}"
+        super().__init__(placeholder="🌐 言語を選択 / Select Language", min_values=1, max_values=1, options=options, custom_id=custom_id)
         self.guild_id = guild_id
 
     async def callback(self, interaction: discord.Interaction):
-        lang_data = load_lang()
-        lang_data[str(self.guild_id)] = self.values[0]
-        save_lang(lang_data)
+        # save selection
+        data = load_guild_lang()
+        data[str(self.guild_id)] = self.values[0]
+        save_guild_lang(data)
 
-        await interaction.response.edit_message(
-            embed=create_welcome_embed(self.values[0]),
-            view=WelcomeView(self.guild_id)
-        )
+        # rebuild embed-like content
+        lang = data.get(str(self.guild_id), "ja")
+        content = build_contents_for_lang(lang, self.guild_id)
 
+        # create embed (with random color)
+        color = random.randint(0, 0xFFFFFF)
+        embed = discord.Embed(title=content["title"], description=content["desc"], color=color)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name="\u200b", value=f"{content['auth']}\n{content['intro']}\n{content['warn']}", inline=False)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name="\u200b", value=(
+            f"📖 {content['rule_btn']} 　🔘\n"
+            f"🏵 {content['auth_btn']} 　🔘\n"
+            f"📝 {content['intro_btn']} 　🔘"
+        ), inline=False)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name=content["lang_label"], value="以下のプルダウンで言語を切替できます。", inline=False)
 
-class WelcomeView(discord.ui.View):
-    def __init__(self, guild_id):
-        super().__init__(timeout=None)
-        self.guild_id = guild_id
+        # build new view (re-create to update labels)
+        new_view = build_view_for_guild(self.guild_id, lang)
+        await interaction.response.edit_message(embed=embed, view=new_view)
 
-        lang_data = load_lang()
-        lang = lang_data.get(str(guild_id), "ja")
-        lang_text = LANGUAGES[lang]
+def build_view_for_guild(guild_id: int, lang_code: str = "ja"):
+    """
+    Build a LayoutView (or fallback View) with:
+      - Section(s) representing the embed-like layout (if LayoutView available)
+      - 3 URL Buttons (rules/auth/intro) that jump to channels
+      - Language Select (persistent custom_id)
+    """
+    content = build_contents_for_lang(lang_code, guild_id)
 
-        self.add_item(discord.ui.Button(
-            label=lang_text["rule_btn"],
-            url=f"https://discord.com/channels/{guild_id}/{RULE_CHANNEL_ID}"
+    # If LayoutView + Section available, use those to make embed-like layout
+    if USE_LAYOUT:
+        view = ui.LayoutView(timeout=None)
+
+        # top: text + image placeholder (actual image will be attachment)
+        # ui.Section: holds text blocks (title/desc)
+        view.add_item(ui.Section(
+            content=ui.TextDisplay(content["title"] + "\n" + content["desc"]),
+            key="header"
         ))
-        self.add_item(discord.ui.Button(
-            label=lang_text["auth_btn"],
-            url=f"https://discord.com/channels/{guild_id}/{AUTH_CHANNEL_ID}"
+
+        # divider + auth/intro/warn block
+        view.add_item(ui.Section(
+            content=ui.TextDisplay(content["divider"] + "\n" + content["auth"] + "\n" + content["intro"] + "\n" + content["warn"]),
+            key="middle"
         ))
-        self.add_item(discord.ui.Button(
-            label=lang_text["intro_btn"],
-            url=f"https://discord.com/channels/{guild_id}/{INTRO_CHANNEL_ID}"
-        ))
-        self.add_item(LanguageSelect(guild_id))
 
+        # button row section (we'll add 3 buttons)
+        # Buttons in components are added via ui.Button items
+        # Add rule button (URL)
+        view.add_item(ui.Button(label=content["rule_btn"], style=discord.ButtonStyle.link,
+                                url=f"https://discord.com/channels/{guild_id}/{RULE_CHANNEL_ID}",
+                                key="rule_btn"))
+        view.add_item(ui.Button(label=content["auth_btn"], style=discord.ButtonStyle.link,
+                                url=f"https://discord.com/channels/{guild_id}/{AUTH_CHANNEL_ID}",
+                                key="auth_btn"))
+        view.add_item(ui.Button(label=content["intro_btn"], style=discord.ButtonStyle.link,
+                                url=f"https://discord.com/channels/{guild_id}/{INTRO_CHANNEL_ID}",
+                                key="intro_btn"))
 
-# ================================
-# ウェルカムEmbed作成
-# ================================
-def create_welcome_embed(lang="ja"):
-    text = LANGUAGES[lang]
+        # final divider + language select
+        view.add_item(ui.Section(content=ui.TextDisplay(content["divider"]), key="bottom_div"))
+        select = GuildLanguageSelect(guild_id)
+        view.add_item(select)
+        return view
+    else:
+        # fallback to classic View: put Buttons (link) and Select below embed
+        view = ui.View(timeout=None)
+        view.add_item(ui.Button(label=content["rule_btn"], style=discord.ButtonStyle.link,
+                                url=f"https://discord.com/channels/{guild_id}/{RULE_CHANNEL_ID}"))
+        view.add_item(ui.Button(label=content["auth_btn"], style=discord.ButtonStyle.link,
+                                url=f"https://discord.com/channels/{guild_id}/{AUTH_CHANNEL_ID}"))
+        view.add_item(ui.Button(label=content["intro_btn"], style=discord.ButtonStyle.link,
+                                url=f"https://discord.com/channels/{guild_id}/{INTRO_CHANNEL_ID}"))
+        view.add_item(GuildLanguageSelect(guild_id))
+        return view
 
-    embed = discord.Embed(
-        title=text["title"],
-        description=text["desc"],
-        color=0x00bfff
-    )
-    embed.add_field(name="ーーー", value=text["auth"].format(auth=AUTH_CHANNEL_ID), inline=False)
-    embed.add_field(name="ーーー", value=text["intro"].format(intro=INTRO_CHANNEL_ID), inline=False)
-    embed.add_field(name="ーーー", value=text["warn"], inline=False)
-
-    return embed
-
-
-# ================================
-# Cog本体
-# ================================
-class Welcome(commands.Cog):
+# ---------- Cog ----------
+class WelcomeCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_member_join(self, member):
+    async def on_member_join(self, member: discord.Member):
+        # ignore bots
+        if member.bot:
+            return
 
-        channel = member.guild.get_channel(WELCOME_CHANNEL_ID)
+        # find channel
+        ch = member.guild.get_channel(WELCOME_CHANNEL_ID)
+        if ch is None:
+            return
 
-        # 画像生成
-        img_path = await create_welcome_image(member)
+        # guild language
+        guild_langs = load_guild_lang()
+        lang_code = guild_langs.get(str(member.guild.id), "ja")
 
-        lang_data = load_lang()
-        lang = lang_data.get(str(member.guild.id), "ja")
+        # create image
+        img_bio = await create_welcome_image(member)
+        filename = f"welcome_{member.id}.png"
 
-        embed = create_welcome_embed(lang)
+        # create embed (random color)
+        content = build_contents_for_lang(lang_code, member.guild.id)
+        color = random.randint(0, 0xFFFFFF)
+        embed = discord.Embed(title=content["title"], description=content["desc"], color=color)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name="\u200b", value=f"{content['auth']}\n{content['intro']}\n{content['warn']}", inline=False)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name="\u200b", value=(
+            f"📖 {content['rule_btn']} 　🔘\n"
+            f"🏵 {content['auth_btn']} 　🔘\n"
+            f"📝 {content['intro_btn']} 　🔘"
+        ), inline=False)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name=content["lang_label"], value="以下のプルダウンで言語を切替できます。", inline=False)
 
-        await channel.send(
-            file=discord.File(img_path),
-            embed=embed,
-            view=WelcomeView(member.guild.id)
-        )
+        embed.set_image(url=f"attachment://{filename}")
 
+        view = build_view_for_guild(member.guild.id, lang_code)
 
-async def setup(bot):
-    await bot.add_cog(Welcome(bot))
+        await ch.send(embed=embed, file=discord.File(fp=img_bio, filename=filename), view=view)
+
+# setup
+async def setup(bot: commands.Bot):
+    await bot.add_cog(WelcomeCog(bot))
+    # Register persistent views for each guild the bot is in
+    # LayoutView persistence requires registering the same structure (custom_id) at startup.
+    # We'll register a per-guild view with the custom_ided select so persistence works.
+    for guild in bot.guilds:
+        try:
+            bot.add_view(build_view_for_guild(guild.id, load_guild_lang().get(str(guild.id), "ja")))
+        except Exception:
+            # ignore failures (e.g., if LayoutView not available)
+            pass

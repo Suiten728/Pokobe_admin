@@ -1,0 +1,86 @@
+{
+  "ja": {
+    "title": "🪄 Welcome to KazamaTai no Gethering Place",
+    "desc": "🎉 サーバーにようこそ！隊士が集うこの場でたくさんの思い出を作りましょう！",
+    "auth": "🏵 まずは <#{auth}> で認証をしてサーバーに参加しましょう！",
+    "intro": "📝 自己紹介は <#{intro}> へどうぞ！",
+    "warn": "⚠️ 安全上、このサーバーに入ってから10分しなければメッセージは送信できません！",
+    "rule_btn": "📖 サーバールールを確認",
+    "auth_btn": "🏵 認証を始める",
+    "intro_btn": "📝 自己紹介はこちら",
+    "lang_label": "🌐 言語変更 / Change Language",
+    "divider": "──────────────────────────"
+  },
+  "en": {
+    "title": "🪄 Welcome to KazamaTai no Gethering Place",
+    "desc": "🎉 Welcome to the server! Make lots of great memories together with fellow members!",
+    "auth": "🏵 First, please complete the verification in <#{auth}>!",
+    "intro": "📝 Introduce yourself in <#{intro}>!",
+    "warn": "⚠️ For safety reasons, you cannot send messages for 10 minutes after joining.",
+    "rule_btn": "📖 View Server Rules",
+    "auth_btn": "🏵 Start Verification",
+    "intro_btn": "📝 Go to Introduction",
+    "lang_label": "🌐 Change Language",
+    "divider": "──────────────────────────"
+  },
+  "zh": {
+    "title": "🪄 欢迎来到 KazamaTai no Gethering Place!",
+    "desc": "🎉 欢迎加入服务器！愿你与这里的成员们一起创造许多美好回忆！",
+    "auth": "🏵 请先在 <#{auth}> 完成认证！",
+    "intro": "📝 自我介绍请前往 <#{intro}>！",
+    "warn": "⚠️ 出于安全原因，加入后需要等待 10 分钟才能发送消息。",
+    "rule_btn": "📖 查看服务器规则",
+    "auth_btn": "🏵 开始认证",
+    "intro_btn": "📝 前往自我介绍",
+    "lang_label": "🌐 语言选择",
+    "divider": "──────────────────────────"
+  },
+  "ko": {
+    "title": "🪄 KazamaTai no Gethering Place 서버에 오신 것을 환영합니다!",
+    "desc": "🎉 이곳은 대사들이 모이는 공간입니다. 함께 멋진 추억을 만들어가요!",
+    "auth": "🏵 먼저 <#{auth}> 채널에서 인증을 완료해주세요!",
+    "intro": "📝 자기소개는 <#{intro}> 에 작성해주세요!",
+    "warn": "⚠️ 보안상, 참여 후 10분간 메시지를 보낼 수 없습니다.",
+    "rule_btn": "📖 서버 규칙 확인",
+    "auth_btn": "🏵 인증 시작하기",
+    "intro_btn": "📝 자기소개하러 가기",
+    "lang_label": "🌐 언어 변경",
+    "divider": "──────────────────────────"
+  },
+  "id": {
+    "title": "🪄 Selamat datang di KazamaTai no Gethering Place!",
+    "desc": "🎉 Selamat datang di server! Mari buat banyak kenangan indah bersama!",
+    "auth": "🏵 Silakan lakukan verifikasi di <#{auth}>!",
+    "intro": "📝 Perkenalkan diri di <#{intro}>!",
+    "warn": "⚠️ Demi keamanan, kamu tidak bisa mengirim pesan selama 10 menit pertama.",
+    "rule_btn": "📖 Lihat Peraturan Server",
+    "auth_btn": "🏵 Mulai Verifikasi",
+    "intro_btn": "📝 Pergi ke Perkenalan",
+    "lang_label": "🌐 Ganti Bahasa",
+    "divider": "──────────────────────────"
+  },
+  "es": {
+    "title": "🪄 Bienvenido a KazamaTai no Gethering Place",
+    "desc": "🎉 ¡Bienvenido al servidor! ¡Haz muchos recuerdos geniales con los demás miembros!",
+    "auth": "🏵 Primero, completa la verificación en <#{auth}>!",
+    "intro": "📝 ¡Preséntate en <#{intro}>!",
+    "warn": "⚠️ Por seguridad, no puedes enviar mensajes durante 10 minutos después de unirte.",
+    "rule_btn": "📖 Ver reglas del servidor",
+    "auth_btn": "🏵 Iniciar verificación",
+    "intro_btn": "📝 Ir a presentaciones",
+    "lang_label": "🌐 Cambiar idioma",
+    "divider": "──────────────────────────"
+  },
+  "ar": {
+    "title": "🪄 مرحبًا بك في KazamaTai no Gethering Place",
+    "desc": "🎉 مرحبًا بك في الخادم! اصنع الكثير من الذكريات الجميلة مع الأعضاء!",
+    "auth": "🏵 أولًا، يرجى إتمام التحقق في <#{auth}>!",
+    "intro": "📝 قدّم نفسك في <#{intro}>!",
+    "warn": "⚠️ لأسباب أمنية، لا يمكنك إرسال رسائل خلال 10 دقائق بعد الانضمام.",
+    "rule_btn": "📖 عرض قواعد الخادم",
+    "auth_btn": "🏵 بدء التحقق",
+    "intro_btn": "📝 الانتقال إلى التعارف",
+    "lang_label": "تغيير اللغة",
+    "divider": "──────────────────────────"
+  }
+}

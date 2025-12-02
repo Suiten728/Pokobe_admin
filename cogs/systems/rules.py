@@ -4,52 +4,67 @@ import json
 import os
 
 # JSONロード関数
-def load_rules() -> dict:
-    with open("data/rules.json", "r", encoding="utf-8") as f:
+def load_posts() -> dict:
+    with open("data/texts.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 # --- 言語選択メニュー ---
-class RuleLanguageSelect(discord.ui.Select):
-    def __init__(self, rules_data: dict):
-        self.rules_data = rules_data
+class LanguageSelect(discord.ui.Select):
+    def __init__(self, item_data: dict):
+        self.item_data = item_data
         options = [
             discord.SelectOption(label="English", value="en", emoji="🇺🇸"),
             discord.SelectOption(label="中文", value="zh", emoji="🇨🇳"),
             discord.SelectOption(label="한국어", value="ko", emoji="🇰🇷"),
             discord.SelectOption(label="Bahasa Indonesia", value="id", emoji="🇮🇩"),
+            discord.SelectOption(label="Español", value="es", emoji="🇪🇸"),
+            discord.SelectOption(label="العربية", value="ar", emoji="🇸🇦"),
         ]
         super().__init__(
             placeholder="🌐 言語を変更 | Change Language",
             options=options,
-            custom_id="rules_lang_select"
+            custom_id="dynamic_lang_select"
         )
 
     async def callback(self, interaction: discord.Interaction):
         lang = self.values[0]
-        text = self.rules_data.get(lang, "❌ この言語のルールは未設定です。")
+        text = self.item_data.get(lang, "❌ この言語は未設定です。")
         await interaction.response.send_message(text, ephemeral=True)
 
-# --- 永続化View ---
-class RulesView(discord.ui.View):
-    def __init__(self, rules_data: dict):
+# --- 永続View ---
+class PostView(discord.ui.View):
+    def __init__(self, item_data: dict):
         super().__init__(timeout=None)
-        self.add_item(RuleLanguageSelect(rules_data))
+        self.add_item(LanguageSelect(item_data))
 
 # --- Cog ---
-class RulesCog(commands.Cog):
+class DynamicPostCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.rules_data = load_rules()
+        self.data = load_posts()
 
-    @commands.command(name="post_rules")
-    async def post_rules(self, ctx: commands.Context):
-        """ルールを投稿するコマンド"""
-        await ctx.send(self.rules_data["ja"], view=RulesView(self.rules_data))
+    @commands.command(name="post")
+    async def post(self, ctx: commands.Context, item_name: str):
+        """
+        JSON内の任意の項目を送信するコマンド。
+        例: !post rules
+        """
+        item = self.data.get(item_name)
+
+        if item is None:
+            await ctx.send(f"❌ `{item_name}` は JSON に存在しません。")
+            return
+
+        # 日本語がなければランダム or 最初の言語でもOK
+        text = item.get("ja") or next(iter(item.values()))
+
+        await ctx.send(text, view=PostView(item))
 
     @commands.Cog.listener()
     async def on_ready(self):
-        # 再起動後も動作するようにViewを登録
-        self.bot.add_view(RulesView(self.rules_data))
+        # 再起動後のため全 View を登録
+        for item_data in self.data.values():
+            self.bot.add_view(PostView(item_data))
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(RulesCog(bot))
+    await bot.add_cog(DynamicPostCog(bot))
