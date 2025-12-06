@@ -1,7 +1,7 @@
 <div align="center">
     <h1>ぽこべぇ管理人Bot</h1>
     <img src="https://suiten-8ckghymktw.edgeone.dev/1000004028-removebg-preview.png" alt="COMET Logo" width="200" height="200">
-    <h3>総合ガイド</h3>
+    <h2>📕総合ガイド</h2>
 </div>
 
 ---
