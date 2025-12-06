@@ -100,54 +100,64 @@ class TalkCog(commands.Cog):
             traceback.print_exc()
             return False
 
+    # ===== on_message（AI本体） =====
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        # 基本ガード
+
+        # Bot のメッセージは無視
         if message.author.bot:
+            await self.bot.process_commands(message)
             return
 
-        # チャンネルガード
+        # 🔥 停止中なら AI 処理は全部スキップ（でもコマンドは動かす）
+        if hasattr(self.bot, "talk_enabled") and not self.bot.talk_enabled:
+            await self.bot.process_commands(message)
+            return
+
+        # ターゲットチャンネル以外では AI 返信しない（でもコマンド処理は必要）
         if message.channel.id != TARGET_CHANNEL_ID:
+            await self.bot.process_commands(message)
             return
 
-        # 文字数ガード
+        # 空白は無視（でもコマンド処理は通す）
         if not message.content or message.content.strip() == "":
-            return  # 空メッセージは無視
+            await self.bot.process_commands(message)
+            return
+
+        # 長文制限
         if len(message.content) > USER_MAX_LENGTH:
             try:
                 await message.reply(f"⛔ メッセージが長すぎます（{USER_MAX_LENGTH}文字以内）", mention_author=False)
-            except Exception:
+            except:
                 pass
+            await self.bot.process_commands(message)
             return
 
-        # キャラ設定を読み込む（毎回読み直すことで、ファイル差し替えが即反映される）
+        # キャラ読み込み
         try:
             with open(DEFAULT_CHARACTER, "r", encoding="utf-8") as f:
                 character_prompt = f.read().strip()
-        except Exception as e:
-            print("キャラ読み込み失敗:", e)
+        except:
             character_prompt = "あなたは親切なAIです。"
 
         full_prompt = f"{character_prompt}\n\nユーザー: {message.content}\nAI:"
-        # Gemini に投げる
+
         reply_text = await self.ask_gemini(full_prompt)
         if not reply_text:
             reply_text = "（応答が空でした）"
 
-        # 長さ制限
         if len(reply_text) > GEMINI_MAX_LENGTH:
             reply_text = reply_text[:GEMINI_MAX_LENGTH] + "…"
 
-        # まず Webhook で Reply を試す
         ok = await self.post_webhook_reply(message, reply_text)
         if not ok:
-            # フォールバック：Bot 自身で reply を返す（確実にユーザーに返信が届く）
             try:
                 await message.reply(f"(Webhook 送信失敗のため代替返信)\n{reply_text}", mention_author=False)
-            except Exception as e:
-                # 最終的にログ出力して黙る（ここまで来たら環境依存の問題）
-                print("代替 reply 失敗:", e)
+            except:
                 traceback.print_exc()
+
+        # 🔥 最後に必ずコマンド処理
+        await self.bot.process_commands(message)
 
 
 async def setup(bot):

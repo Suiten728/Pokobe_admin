@@ -8,6 +8,10 @@ import io
 import os
 import json
 import random
+
+import logging
+logger = logging.getLogger("welcome_cog")
+
 from ci.welcome_set import(
     WELCOME_CHANNEL_ID,
     RULE_CHANNEL_ID,
@@ -121,15 +125,95 @@ USE_LAYOUT = hasattr(ui, "LayoutView") and hasattr(ui, "Section")
 
 ParentView = ui.LayoutView if USE_LAYOUT else ui.View
 
-class WelcomeLayout(ParentView):
-    def __init__(self, guild_id: int):
-        # LayoutView doesn't accept timeout by default; for fallback to View keep compatibility
-        if USE_LAYOUT:
-            super().__init__(timeout=None)
-        else:
-            super().__init__(timeout=None)
-        self.guild_id = guild_id
-        # We'll build sections dynamically in a factory function elsewhere
+class WelcomeCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    async def _do_send_welcome(self, member: discord.Member):
+        """共通の送信処理。例外は呼び出し元でキャッチする"""
+        # find channel
+        ch = member.guild.get_channel(WELCOME_CHANNEL_ID)
+        if ch is None:
+            raise RuntimeError(f"WELCOME_CHANNEL not found (id={WELCOME_CHANNEL_ID}) in guild {member.guild.id}")
+
+        # guild language
+        guild_langs = load_guild_lang()
+        lang_code = guild_langs.get(str(member.guild.id), "ja")
+
+        # create image
+        img_bio = await create_welcome_image(member)
+        filename = f"welcome_{member.id}.png"
+
+        # create embed (random color)
+        content = build_contents_for_lang(lang_code, member.guild.id)
+        color = random.randint(0, 0xFFFFFF)
+        embed = discord.Embed(title=content["title"], description=content["desc"], color=color)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name="\u200b", value=f"{content['auth']}\n{content['intro']}\n{content['warn']}", inline=False)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name="\u200b", value=(
+            f"📖 {content['rule_btn']} 　🔘\n"
+            f"🏵 {content['auth_btn']} 　🔘\n"
+            f"📝 {content['intro_btn']} 　🔘"
+        ), inline=False)
+        embed.add_field(name="\u200b", value=content["divider"], inline=False)
+        embed.add_field(name=content["lang_label"], value="以下のプルダウンで言語を切替できます。", inline=False)
+
+        embed.set_image(url=f"attachment://{filename}")
+
+        view = build_view_for_guild(member.guild.id, lang_code)
+
+        # send and return message
+        return await ch.send(embed=embed, file=discord.File(fp=img_bio, filename=filename), view=view)
+
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        # ignore bots
+        if member.bot:
+            logger.debug(f"Ignored bot member join: {member} ({member.id})")
+            return
+
+        logger.info(f"on_member_join fired for {member} ({member.id}) in guild {member.guild.id}")
+
+        try:
+            # quick permission check
+            ch = member.guild.get_channel(WELCOME_CHANNEL_ID)
+            if ch is None:
+                logger.warning(f"WELCOME channel not found for guild {member.guild.id} (id {WELCOME_CHANNEL_ID})")
+                return
+
+            perms = ch.permissions_for(member.guild.me or member.guild.get_member(self.bot.user.id))
+            logger.debug(f"Bot perms in channel {ch.id}: send_messages={perms.send_messages}, embed_links={perms.embed_links}, attach_files={perms.attach_files}")
+
+            if not (perms.send_messages and perms.embed_links and perms.attach_files):
+                logger.warning("Bot missing required permissions in the welcome channel.")
+                return
+
+            msg = await self._do_send_welcome(member)
+            logger.info(f"Welcome message sent: {msg.id} in channel {ch.id}")
+
+        except Exception as e:
+            # Log exception with stack trace so you can paste it here
+            logger.exception("Failed to send welcome message")
+
+        # ---- 管理者用コマンド（同じ Cog 内に追加） ----
+    @commands.command(name="force_welcome")
+    @commands.has_permissions(administrator=True)
+    async def force_welcome(self, ctx, member: discord.Member = None):
+        """管理者向け：指定したメンバー（またはコマンド実行者）にテストでウェルカムを送る"""
+        target = member or ctx.author
+        try:
+            await ctx.send("Sending test welcome...")
+            msg = await self._do_send_welcome(target)
+            await ctx.send(f"Test welcome sent: {msg.jump_url}")
+        except Exception as e:
+            await ctx.send(f"Failed to send test welcome: {e}")
+            raise
+
+        except Exception as e:
+            print(f"Error in force_welcome: {e}")
+
 
 # Custom select/listener with persistent custom_id per guild
 class GuildLanguageSelect(ui.Select):
