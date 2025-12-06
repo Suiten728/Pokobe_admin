@@ -1,6 +1,6 @@
 <div align="center">
     <h1>ぽこべぇ管理人Bot</h1>
-    <img scr="https://suiten-8ckghymktw.edgeone.dev/1000004028-removebg-preview.png">
+    <img scr="https://suiten-8ckghymktw.edgeone.dev/1000004028-removebg-preview.png" alt="Pokobe_admin Logo">
     <h3>総合ガイド</h3>
 </div>
 ぽこべぇ管理人Botはかざま隊の集いの場の管理をします。こちらは、1サーバー専用のため、ハードコードが含まれる可能性があります。詳しくはSuitenまでご連絡下さい。また、こちらのコードを公開しないようにお願いします。</br>
