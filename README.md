@@ -7,7 +7,7 @@
 
 [![license](https://img.shields.io/github/license/ryo-ma/github-profile-trophy)](https://github.com/Suiten728/Pokobe_admin/blob/main/LICENSE)
 
-[![Discord](https://img.shields.io/discord/308323056592486420?logo=discord&logoColor=white)]
+![Discord](https://img.shields.io/discord/1363116304764112966?logo=discord&logoColor=white)
 
 ぽこべぇ管理人Botはかざま隊の集いの場の管理をします。こちらは、1サーバー専用のため、ハードコードが含まれる可能性があります。詳しくはSuitenまでご連絡下さい。また、こちらのコードを公開しないようにお願いします。</br>
 
