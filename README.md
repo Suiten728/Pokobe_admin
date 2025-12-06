@@ -3,6 +3,7 @@
     <img src="https://suiten-8ckghymktw.edgeone.dev/1000004028-removebg-preview.png" alt="COMET Logo" width="200" height="200">
     <h3>総合ガイド</h3>
 </div>
+
 ---
 
 ぽこべぇ管理人Botはかざま隊の集いの場の管理をします。こちらは、1サーバー専用のため、ハードコードが含まれる可能性があります。詳しくはSuitenまでご連絡下さい。また、こちらのコードを公開しないようにお願いします。</br>
