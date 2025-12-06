@@ -3,7 +3,7 @@
     <img src="https://suiten-8ckghymktw.edgeone.dev/1000004028-removebg-preview.png" alt="Pokobe_admin Logo" width="200" height="200">
     <h2>📕総合ガイド</h2>
 </div>
-[![Python](img.shields.io)]
+[![Python](https://img.shields.io/github/pyhon)]
 
 [![license](https://img.shields.io/github/license/ryo-ma/github-profile-trophy)](https://github.com/Suiten728/Pokobe_admin/blob/main/LICENSE)
 
