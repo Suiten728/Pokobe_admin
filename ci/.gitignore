@@ -1,0 +1,12 @@
+.env
+ai_set.py
+setting.py
+welcome_set.py
+
+venv/
+venv/*
+data/
+data/*
+__pycache__/
+*.pyc
+.DS_Store
