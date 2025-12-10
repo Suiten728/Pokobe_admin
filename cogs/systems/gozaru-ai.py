@@ -17,7 +17,7 @@ class TalkCog(commands.Cog):
 
     async def ask_gemini(self, prompt: str) -> str:
         
-        url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent"
+        url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent"
 
         payload = {
             "contents": [
@@ -44,7 +44,7 @@ class TalkCog(commands.Cog):
                     text = await resp.text()
 
                     if resp.status != 200:
-                        return f"【Gemini API エラー】status={resp.status}\n{text}"
+                        return f"【Gemini API エラー】status={resp.status}\n{text}\n\nエラーの為スタッフにメンションをお願いします。"
 
                     data = json.loads(text)
 
@@ -52,13 +52,13 @@ class TalkCog(commands.Cog):
                     try:
                         return data["candidates"][0]["content"]["parts"][0]["text"]
                     except Exception:
-                        return f"（Gemini の応答パースに失敗しました）\n返却値：{text}"
+                        return f"（Gemini の応答パースに失敗しました）\n返却値：{text}\n\nエラーの為スタッフにメンションをお願いします。"
 
         except asyncio.TimeoutError:
-            return "（通信タイムアウト：Gemini への接続が遅延しました）"
+            return "（通信タイムアウト：Gemini への接続が遅延しました）\n\nエラーの為スタッフにメンションをお願いします。"
 
         except Exception as e:
-            return f"（通信エラー：{e})"
+            return f"（通信エラー：{e})\n\nエラーの為スタッフにメンションをお願いします。"
 
 
     async def post_webhook_reply(self, message: discord.Message, content: str) -> bool:
@@ -106,22 +106,18 @@ class TalkCog(commands.Cog):
 
         # Bot のメッセージは無視
         if message.author.bot:
-            await self.bot.process_commands(message)
             return
 
         # 🔥 停止中なら AI 処理は全部スキップ（でもコマンドは動かす）
         if hasattr(self.bot, "talk_enabled") and not self.bot.talk_enabled:
-            await self.bot.process_commands(message)
             return
 
         # ターゲットチャンネル以外では AI 返信しない（でもコマンド処理は必要）
         if message.channel.id != TARGET_CHANNEL_ID:
-            await self.bot.process_commands(message)
             return
 
         # 空白は無視（でもコマンド処理は通す）
         if not message.content or message.content.strip() == "":
-            await self.bot.process_commands(message)
             return
 
         # 長文制限
@@ -130,7 +126,6 @@ class TalkCog(commands.Cog):
                 await message.reply(f"⛔ メッセージが長すぎます（{USER_MAX_LENGTH}文字以内）", mention_author=False)
             except:
                 pass
-            await self.bot.process_commands(message)
             return
 
         # キャラ読み込み
@@ -155,9 +150,6 @@ class TalkCog(commands.Cog):
                 await message.reply(f"(Webhook 送信失敗のため代替返信)\n{reply_text}", mention_author=False)
             except:
                 traceback.print_exc()
-
-        # 🔥 最後に必ずコマンド処理
-        await self.bot.process_commands(message)
 
 
 async def setup(bot):

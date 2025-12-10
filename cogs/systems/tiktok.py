@@ -17,7 +17,7 @@ from ci.setting import (
 class TikTokNotifyCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.latest_file = "ci/data/latest_video.json"
+        self.latest_file = "data/latest_video.json"
         self.check_tiktok.start()
 
     # ---- 最新動画 ID の保存/読み込み ----
@@ -66,9 +66,9 @@ class TikTokNotifyCog(commands.Cog):
     # ---- Discord Webhook 送信 ----
     async def send_discord_notification(self, video):
         payload = {
-            "username": "TikTok Notify",
+            "username": None, # Webhook 側の設定を使う
             "content": (
-                f"<@&{MENTION_ROLE_ID}> 新しい TikTok が投稿されました！\n"
+                f"<@&{MENTION_ROLE_ID}> \n新しい TikTok が投稿されました！\n"
                 f"{video['desc']}\n{video['url']}"
             )
         }
