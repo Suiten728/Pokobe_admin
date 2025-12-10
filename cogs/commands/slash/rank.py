@@ -6,7 +6,7 @@ import os
 import sqlite3
 import io
 
-DB_PATH = "data/userdata.db"
+DB_PATH = "ci/data/userdata.db"
 
 # SQLite 初期化
 def init_db():

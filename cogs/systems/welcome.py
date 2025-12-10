@@ -22,8 +22,8 @@ from ci.welcome_set import(
 )
 
 # 永続化ファイル
-LANG_BY_GUILD = "data/lang_by_guild.json"
-LANG_MASTER_FILE = "data/languages.json"
+LANG_BY_GUILD = "ci/data/lang_by_guild.json"
+LANG_MASTER_FILE = "ci/data/languages.json"
 os.makedirs("data", exist_ok=True)
 
 # load master language file

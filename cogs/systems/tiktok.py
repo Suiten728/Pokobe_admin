@@ -17,7 +17,7 @@ from ci.setting import (
 class TikTokNotifyCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.latest_file = "data/latest_video.json"
+        self.latest_file = "ci/data/latest_video.json"
         self.check_tiktok.start()
 
     # ---- 最新動画 ID の保存/読み込み ----

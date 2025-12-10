@@ -5,7 +5,7 @@ import os
 
 # JSONロード関数
 def load_posts() -> dict:
-    with open("data/texts.json", "r", encoding="utf-8") as f:
+    with open("ci/data/texts.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 # --- 言語選択メニュー ---

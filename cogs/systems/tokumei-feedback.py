@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 
 # ===== JSON管理部分 =====
-DATA_FILE = "data/anonymous_users.json"
+DATA_FILE = "ci/data/anonymous_users.json"
 
 def load_data():
     if not os.path.exists(DATA_FILE):

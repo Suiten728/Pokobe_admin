@@ -3,7 +3,7 @@ ai_set.py
 setting.py
 welcome_set.py
 
-venv/
+venv
 venv/*
 data/
 data/*
