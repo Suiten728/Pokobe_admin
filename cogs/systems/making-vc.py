@@ -5,7 +5,7 @@ import asyncio
 import json
 import os
 
-DATA_FILE = "ci/data/voice_rooms.json"
+DATA_FILE = "data/voice_rooms.json"
 MAKING_VC_CHANNEl = [1444245711905620100] # 個室作成VCのチャンネルIDリスト
 
 

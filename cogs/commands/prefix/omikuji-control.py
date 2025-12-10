@@ -4,8 +4,8 @@ import json
 import os
 from datetime import datetime
 
-DATA_FILE = "ci/data/omikuji.json"
-CONTROL_FILE = "ci/data/omikuji_control.json"
+DATA_FILE = "data/omikuji.json"
+CONTROL_FILE = "data/omikuji_control.json"
 
 
 def load_data():
