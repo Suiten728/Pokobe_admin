@@ -10,7 +10,7 @@ secret_key = os.getenv(
     "RAPIDAPI_KEY",
     "TIKTOK_API_URL",
     "TIKTOK_USERNAME",
-    "DISCORD_WEBHOOK_URL",
+    "TIKTOK_WEBHOOK_URL",
     "MENTION_ROLE_ID",
     "CHECK_INTERVAL"
 )
@@ -103,4 +103,5 @@ class TikTokNotifyCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(TikTokNotifyCog(bot))
+
 
