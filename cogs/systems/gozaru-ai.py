@@ -2,17 +2,21 @@ import json
 import aiohttp
 import discord
 from discord.ext import commands
+import os
 from dotenv import load_dotenv
-
-load_dotenv() # .envファイルを読み込む
-secret_key = os.getenv(
-    "GEMINI_API_KEY","TARGET_CHANNEL_ID",
-    "AI_WEBHOOK_URL", "WEBHOOK_NAME",
-    "USER_MAX_LENGTH", "GEMINI_MAX_LENGTH",
-    "DEFAULT_CHARACTER"
-)
 import asyncio
 import traceback
+
+load_dotenv(dotenv_path="ci/.env") # .envファイルをすべて読み込む
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
+AI_WEBHOOK_URL = os.getenv("AI_WEBHOOK_URL")
+WEBHOOK_URL = os.getenv("AI_WEBHOOK_URL")
+WEBHOOK_NAME = os.getenv("WEBHOOK_NAME", "Gozaru AI")
+USER_MAX_LENGTH = int(os.getenv("USER_MAX_LENGTH"))
+GEMINI_MAX_LENGTH = int(os.getenv("GEMINI_MAX_LENGTH"))
+
+DEFAULT_CHARACTER = "data/ai-image.txt"
 
 class TalkCog(commands.Cog):
     def __init__(self, bot):

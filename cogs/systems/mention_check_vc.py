@@ -1,13 +1,20 @@
 # === role_mention_vc_check.py ===
 import discord
 from discord.ext import commands
+import os
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path="ci/.env") # .envファイルをすべて読み込む
+CHECK_MENTION_CHANNEL = int(os.getenv("CHECK_MENTION_CHANNEL_ID"))
+CHECK_MENTION_ROLE_ID = int(os.getenv("CHECK_MENTION_ROLE_ID"))
+
 
 class RoleMentionVCCheck(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         # ▼書き換えてね
-        self.target_channel_id = 1444550578326732901  # 反応するテキストチャンネルID
-        self.target_role_id = 1444491233312509962    # メンションされたら反応するロールID
+        self.target_channel_id = CHECK_MENTION_CHANNEL  # 反応するテキストチャンネルID
+        self.target_role_id = CHECK_MENTION_ROLE_ID    # メンションされたら反応するロールID
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

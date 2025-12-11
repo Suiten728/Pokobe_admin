@@ -7,11 +7,9 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-load_dotenv() # .envファイルを読み込む
-secret_key = os.getenv(
-    "TOKUMEI_WEBHOOK1_URL",
-    "TOKUMEI_WEBHOOK2_URL"
-)
+load_dotenv(dotenv_path="ci/.env") # .envファイルをすべて読み込む
+TOKUMEI_WEBHOOK1_URL = os.getenv("TOKUMEI_WEBHOOK1_URL")
+TOKUMEI_WEBHOOK2_URL = os.getenv("TOKUMEI_WEBHOOK2_URL")
 
 # ===== JSON管理部分 =====
 DATA_FILE = "data/anonymous_users.json"

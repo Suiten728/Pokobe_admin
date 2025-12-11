@@ -5,15 +5,13 @@ import aiohttp
 import os
 from dotenv import load_dotenv
 
-load_dotenv() # .envファイルを読み込む
-secret_key = os.getenv(
-    "RAPIDAPI_KEY",
-    "TIKTOK_API_URL",
-    "TIKTOK_USERNAME",
-    "TIKTOK_WEBHOOK_URL",
-    "MENTION_ROLE_ID",
-    "CHECK_INTERVAL"
-)
+load_dotenv(dotenc_path="ci/.env") # .envファイルをすべて読み込む
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+TIKTOK_API_URL = os.getenv("TIKTOK_API_URL")
+TIKTOK_USERNAME = os.getenv("TIKTOK_USERNAME")
+TIKTOK_WEBHOOK_URL = os.getenv("TIKTOK_WEBHOOK_URL")
+TIKTOK_MENTION_ROLE_ID = os.getenv("TIKTOK_MENTION_ROLE_ID")
+CHECK_INTERVAL = os.getenv("CHECK_INTERVAL")
 
 
 class TikTokNotifyCog(commands.Cog):
@@ -70,13 +68,13 @@ class TikTokNotifyCog(commands.Cog):
         payload = {
             "username": None, # Webhook 側の設定を使う
             "content": (
-                f"<@&{MENTION_ROLE_ID}> \n新しい TikTok が投稿されました！\n"
+                f"<@&{TIKTOK_MENTION_ROLE_ID}> \n新しい TikTok が投稿されました！\n"
                 f"{video['desc']}\n{video['url']}"
             )
         }
 
         async with aiohttp.ClientSession() as session:
-            await session.post(DISCORD_WEBHOOK_URL, json=payload)
+            await session.post(TIKTOK_WEBHOOK_URL, json=payload)
 
     # ---- 定期実行ループ ----
     @tasks.loop(seconds=CHECK_INTERVAL)

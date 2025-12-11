@@ -12,15 +12,13 @@ import logging
 logger = logging.getLogger("welcome_cog")
 from dotenv import load_dotenv
 
-load_dotenv() # .envファイルを読み込む
-secret_key = os.getenv(
-    "WELCOME_CHANNEL_ID",
-    "RULE_CHANNEL_ID",
-    "AUTH_CHANNEL_ID",
-    "INTRO_CHANNEL_ID",
-    "BG_PATH",
-    "FONT_PATH"
-)
+load_dotenv(dotenv_path="ci/.env") # .envファイルを読み込む
+WELCOME_CHANNEL_ID = os.getenv("WELCOME_CHANNEL_ID")
+RULE_CHANNEL_ID = os.getenv("RULE_CHANNEL_ID")
+AUTH_CHANNEL_ID = os.getenv("AUTH_CHANNEL_ID")
+INTRO_CHANNEL_ID = os.getenv("INTRO_CHANNEL_ID")
+BG_PATH = os.getenv("BG_PATH")
+FONT_PATH = os.getenv("FONT_PATH")
 
 # 永続化ファイル
 LANG_BY_GUILD = "data/lang_by_guild.json"
