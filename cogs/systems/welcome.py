@@ -8,17 +8,18 @@ import io
 import os
 import json
 import random
-
 import logging
 logger = logging.getLogger("welcome_cog")
+from dotenv import load_dotenv
 
-from ci.welcome_set import(
-    WELCOME_CHANNEL_ID,
-    RULE_CHANNEL_ID,
-    AUTH_CHANNEL_ID,
-    INTRO_CHANNEL_ID,
-    BG_PATH,
-    FONT_PATH
+load_dotenv() # .envファイルを読み込む
+secret_key = os.getenv(
+    "WELCOME_CHANNEL_ID",
+    "RULE_CHANNEL_ID",
+    "AUTH_CHANNEL_ID",
+    "INTRO_CHANNEL_ID",
+    "BG_PATH",
+    "FONT_PATH"
 )
 
 # 永続化ファイル
@@ -373,3 +374,4 @@ async def setup(bot: commands.Bot):
         except Exception:
             # ignore failures (e.g., if LayoutView not available)
             pass
+
