@@ -5,6 +5,13 @@ from discord import app_commands
 import json
 import os
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv() # .envファイルを読み込む
+secret_key = os.getenv(
+    "TOKUMEI_WEBHOOK1_URL",
+    "TOKUMEI_WEBHOOK2_URL"
+)
 
 # ===== JSON管理部分 =====
 DATA_FILE = "data/anonymous_users.json"
@@ -27,8 +34,8 @@ class AnonymousBox(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         # WebhookのURL（あなたの環境に合わせて書き換えてください）
-        self.webhook_main_url = "https://discord.com/api/webhooks/1444214615109140501/v4M5x-lA4UPs8JaOx_7kGuhqyn40-nCenl6enWjlmCMxDnjPAkHHX0M44fHKcNSexNAn"  # 常在メッセージ（匿名掲示板）
-        self.webhook_send_url = "https://discord.com/api/webhooks/1444664381794422816/usj6YjSvyNOEvpXrd-UWa8dN2fB0AZvMjil8vjJQS1I4oXWpPogIKhjesoHOF-2csmzZ"  # 匿名番号付き投稿
+        self.webhook_main_url = TOKUMEI_WEBHOOK1_URL
+        self.webhook_send_url = TOKUMEI_WEBHOOK2_URL
 
         # 常在メッセージを管理（再送・削除のため）
         self.panel_message = None
