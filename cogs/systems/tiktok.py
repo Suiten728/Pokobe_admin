@@ -3,14 +3,16 @@ from discord.ext import commands, tasks
 import json
 import aiohttp
 import os
+from dotenv import load_dotenv
 
-from ci.setting import (
-    RAPIDAPI_KEY,
-    TIKTOK_API_URL,
-    TIKTOK_USERNAME,
-    DISCORD_WEBHOOK_URL,
-    MENTION_ROLE_ID,
-    CHECK_INTERVAL
+load_dotenv() # .envファイルを読み込む
+secret_key = os.getenv(
+    "RAPIDAPI_KEY",
+    "TIKTOK_API_URL",
+    "TIKTOK_USERNAME",
+    "DISCORD_WEBHOOK_URL",
+    "MENTION_ROLE_ID",
+    "CHECK_INTERVAL"
 )
 
 
@@ -101,3 +103,4 @@ class TikTokNotifyCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(TikTokNotifyCog(bot))
+
