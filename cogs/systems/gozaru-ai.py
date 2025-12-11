@@ -2,11 +2,14 @@ import json
 import aiohttp
 import discord
 from discord.ext import commands
-from ci.ai_set import (
-    GEMINI_API_KEY, TARGET_CHANNEL_ID,
-    WEBHOOK_URL, WEBHOOK_NAME,
-    USER_MAX_LENGTH, GEMINI_MAX_LENGTH,
-    DEFAULT_CHARACTER
+from dotenv import load_dotenv
+
+load_dotenv() # .envファイルを読み込む
+secret_key = os.getenv(
+    "GEMINI_API_KEY","TARGET_CHANNEL_ID",
+    "AI_WEBHOOK_URL", "WEBHOOK_NAME",
+    "USER_MAX_LENGTH", "GEMINI_MAX_LENGTH",
+    "DEFAULT_CHARACTER"
 )
 import asyncio
 import traceback
@@ -153,4 +156,5 @@ class TalkCog(commands.Cog):
 
 
 async def setup(bot):
+
     await bot.add_cog(TalkCog(bot))
