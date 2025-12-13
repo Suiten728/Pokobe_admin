@@ -1,6 +1,5 @@
 <div align="center">
-    <h1>SSP</h1>
-    <h2>(ServerSecurityProcess)</h2>
+    <h1>SSP</br>(ServerSecurityProcess)</h1>
 </div>
 
 ## 📑概要

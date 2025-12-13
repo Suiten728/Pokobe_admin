@@ -24,7 +24,7 @@ class MyBot(commands.Bot):
 
     async def setup_hook(self):
         # --- Cogをまとめてロード ---
-        for folder in ("./cogs", "./test"):
+        for folder in ("./cogs", "./SSP"):
             for root, _, files in os.walk(folder):
                 for filename in files:
                     if filename.endswith(".py") and filename != "__init__.py":
