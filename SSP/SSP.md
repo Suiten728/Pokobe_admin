@@ -7,7 +7,7 @@ SSP(Server Security Process)は、Discordコミュニティ上での秩序を保
 
 ## 🛠機能
 SSP内のセキュリティシステムは様々あります。</br>
-⚠公開すると対策されるため、SSPはコードの公開を行いません。詳しくは[LICENSE](https://github.com/Suiten728/Pokobe_admin/blob/main/LICENSE)や[セキュリティポリシー](https://github.com/Suiten728/Pokobe_admin/blob/main/SECURITY.md)を参照してください
+⚠公開すると対策されるため、SSPはコードの公開を行いません。詳しくは[LICENSE](https://github.com/Suiten728/Pokobe_admin/blob/main/LICENSE)や[セキュリティポリシー](https://github.com/Suiten728/Pokobe_admin/blob/main/SECURITY.md)を参照してください。
 ### サーバータグ検知
 サーバータグを検知し、荒らしサーバーのタグをつけている新規ユーザーをKickします。OSSで稼働しています。</br>
 P!SSP stag_add : 参加拒否するタグを追加します。 </br>

@@ -16,7 +16,7 @@ WEBHOOK_NAME = os.getenv("WEBHOOK_NAME")
 USER_MAX_LENGTH = int(os.getenv("USER_MAX_LENGTH"))
 GEMINI_MAX_LENGTH = int(os.getenv("GEMINI_MAX_LENGTH"))
 
-DEFAULT_CHARACTER = "data/ai-image.txt"
+DEFAULT_CHARACTER = "data_public/ai-image.txt"
 
 class TalkCog(commands.Cog):
     def __init__(self, bot):
