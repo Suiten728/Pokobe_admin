@@ -17,8 +17,6 @@ class Emoji(commands.Cog):
         channel = self.bot.get_channel(TARGET_CHANNEL_ID)
         if not channel:
             print("❌ チャンネルが見つかりません。")
-            print("file: add-emoji.py")
-            print(TARGET_CHANNEL_ID)
             return
 
         try:

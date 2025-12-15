@@ -5,16 +5,15 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path="ci/.env") # .envファイルをすべて読み込む
-CHECK_MENTION_CHANNEL = int(os.getenv("CHECK_MENTION_CHANNEL_ID"))
-CHECK_MENTION_ROLE_ID = int(os.getenv("CHECK_MENTION_ROLE_ID"))
+CHECK_MENTION_CHANNEL = int(os.getenv("CHECK_MENTION_CHANNEL_ID"))  # 反応するテキストチャンネルID
+CHECK_MENTION_ROLE_ID = int(os.getenv("CHECK_MENTION_ROLE_ID"))     # メンションされたら反応するロールID
 
 
 class RoleMentionVCCheck(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # ▼書き換えてね
-        self.target_channel_id = CHECK_MENTION_CHANNEL  # 反応するテキストチャンネルID
-        self.target_role_id = CHECK_MENTION_ROLE_ID    # メンションされたら反応するロールID
+        self.target_channel_id = CHECK_MENTION_CHANNEL  
+        self.target_role_id = CHECK_MENTION_ROLE_ID    
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
