@@ -26,10 +26,6 @@ class Emoji(commands.Cog):
 
     # ===== Events =====
     @commands.Cog.listener()
-    async def on_ready(self):
-        print("✅ Emoji Cog ready")
-
-    @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
