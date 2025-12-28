@@ -2,10 +2,11 @@ import discord
 from discord.ext import commands, tasks
 import json
 import aiohttp
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 import pytz
 import os
 from dotenv import load_dotenv
+
 load_dotenv(dotenv_path="ci/.env")
 
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
@@ -13,9 +14,10 @@ TIKTOK_API_URL = os.getenv("TIKTOK_API_URL")
 TIKTOK_API_HOST = os.getenv("TIKTOK_API_HOST")
 TIKTOK_USERNAME = os.getenv("TIKTOK_USERNAME")
 TIKTOK_WEBHOOK_URL = os.getenv("TIKTOK_WEBHOOK_URL")
-
 TIKTOK_MENTION_ROLE_ID = int(os.getenv("TIKTOK_MENTION_ROLE_ID"))
+
 JST = pytz.timezone("Asia/Tokyo")
+
 
 # ======================
 # Cog 本体
@@ -24,16 +26,20 @@ class TikTokNotifyCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.latest_file = "data/latest_video.json"
+        self.last_check: datetime | None = None
 
-        # data ディレクトリ保証
         os.makedirs("data", exist_ok=True)
 
-    # ------------------
-    # Cog ロード時に開始
-    # ------------------
     async def cog_load(self):
         print("✅ TikTokNotifyCog loaded")
         self.check_tiktok.start()
+
+    # ------------------
+    # 時間枠判定（15:00〜19:30）
+    # ------------------
+    def is_check_time(self) -> bool:
+        now = datetime.now(JST).time()
+        return time(15, 0) <= now <= time(19, 30)
 
     # ------------------
     # 最新動画 ID 保存 / 読み込み
@@ -51,12 +57,7 @@ class TikTokNotifyCog(commands.Cog):
 
     def save_last_video_id(self, video_id: str):
         with open(self.latest_file, "w", encoding="utf-8") as f:
-            json.dump(
-                {"video_id": video_id},
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
+            json.dump({"video_id": video_id}, f, ensure_ascii=False, indent=2)
 
     # ------------------
     # TikTok API 呼び出し
@@ -85,9 +86,7 @@ class TikTokNotifyCog(commands.Cog):
                     return None
 
         try:
-            # ※ RapidAPI の仕様差異に対応しやすい書き方
             video = data["data"]["videos"][0]
-
             video_id = video.get("video_id")
 
             return {
@@ -102,56 +101,45 @@ class TikTokNotifyCog(commands.Cog):
             return None
 
     # ------------------
-    # Discord Webhook 送信
+    # Discord Webhook 送信（Embed）
     # ------------------
     async def send_discord_notification(self, video: dict):
         payload = {
             "content": f"<@&{TIKTOK_MENTION_ROLE_ID}>",
             "embeds": [
                 {
-                    "color": 0x0000ff, # 青色
+                    "color": 0x0000FF,
                     "author": {
                         "name": "TikTokで最新動画が投稿されました！",
-                    "url": f"https://www.tiktok.com/@{TIKTOK_USERNAME}"
-                },
-                "title": video["desc"] or "新しい動画",
-                "url": video["url"],
-                "image": {
-                    "url": video.get("thumbnail")
-                },
-                "footer": {
-                    "text": "Published",
-                    "icon_url": "https://sapph.xyz/images/socials/sapphire_tiktok.png"
-                },
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
-        ]
-    }
+                        "url": f"https://www.tiktok.com/@{TIKTOK_USERNAME}"
+                    },
+                    "title": video["desc"] or "新しい動画",
+                    "url": video["url"],
+                    "image": {
+                        "url": video.get("thumbnail")
+                    },
+                    "footer": {
+                        "text": "Published",
+                        "icon_url": "https://sapph.xyz/images/socials/sapphire_tiktok.png"
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            ]
+        }
 
         async with aiohttp.ClientSession() as session:
             async with session.post(TIKTOK_WEBHOOK_URL, json=payload) as r:
                 print("📨 Webhook status:", r.status)
+
     # ------------------
-    # 定期チェック
+    # 定期チェック（30分間隔）
     # ------------------
-    @tasks.loop(seconds=60)
+    @tasks.loop(seconds=1800)  # 30分
     async def check_tiktok(self):
-        now = datetime.now(JST)
-        hour = now.hour
-        minute = now.minute
+        if not self.is_check_time():
+            return
 
-        interval = self.get_interval_seconds(hour)
 
-        # 前回チェック時刻を記録しておく
-        if not hasattr(self, "last_check"):
-         self.last_check = None
-
-        if self.last_check:
-            diff = (now - self.last_check).total_seconds()
-            if diff < interval:
-                return
-
-        self.last_check = now
         latest = await self.fetch_latest_video()
         if latest is None or latest.get("id") is None:
             return
@@ -165,17 +153,6 @@ class TikTokNotifyCog(commands.Cog):
     async def before_check(self):
         await self.bot.wait_until_ready()
 
-    def get_interval_seconds(self, hour: int) -> int:
-        # 朝 09–15
-        if 9 <= hour <= 15:
-            return 2700   # 45分
-
-        # 昼 16–20
-        if 16 <= hour <= 20:
-            return 900    # 15分
-
-        # 夜 21–8
-        return 7200       # 2時間
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(TikTokNotifyCog(bot))

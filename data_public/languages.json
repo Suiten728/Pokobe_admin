@@ -1,0 +1,118 @@
+{
+  "jp": {
+    "title": "🎉 ようこそ！",
+    "desc": "このサーバーへ参加してくれてありがとうございます。",
+    "auth": "🔐 認証はこちら → <#{auth}>",
+    "intro": "📝 自己紹介はこちら → <#{intro}>",
+    "warn": "⚠️ ルールを守って楽しく過ごしましょう。",
+    "rule_btn": "ルール",
+    "auth_btn": "認証",
+    "intro_btn": "自己紹介",
+    "lang_label": "🌐 言語設定",
+    "divider": "──────────────────────────"
+  },
+
+  "en": {
+    "title": "🎉 Welcome!",
+    "desc": "Thanks for joining our server.",
+    "auth": "🔐 Verification → <#{auth}>",
+    "intro": "📝 Introduce yourself → <#{intro}>",
+    "warn": "⚠️ Please follow the rules and enjoy your stay.",
+    "rule_btn": "Rules",
+    "auth_btn": "Verify",
+    "intro_btn": "Introduction",
+    "lang_label": "🌐 Language",
+    "divider": "──────────────────────────"
+  },
+
+  "zh": {
+    "title": "🎉 欢迎！",
+    "desc": "感谢你加入我们的服务器。",
+    "auth": "🔐 认证 → <#{auth}>",
+    "intro": "📝 自我介绍 → <#{intro}>",
+    "warn": "⚠️ 请遵守规则，祝你玩得开心。",
+    "rule_btn": "规则",
+    "auth_btn": "认证",
+    "intro_btn": "介绍",
+    "lang_label": "🌐 语言",
+    "divider": "──────────────────────────"
+  },
+
+  "ko": {
+    "title": "🎉 환영합니다!",
+    "desc": "서버에 오신 것을 환영합니다.",
+    "auth": "🔐 인증 → <#{auth}>",
+    "intro": "📝 자기소개 → <#{intro}>",
+    "warn": "⚠️ 규칙을 지키며 즐겁게 이용해주세요.",
+    "rule_btn": "규칙",
+    "auth_btn": "인증",
+    "intro_btn": "자기소개",
+    "lang_label": "🌐 언어",
+    "divider": "──────────────────────────"
+  },
+
+  "fr": {
+    "title": "🎉 Bienvenue !",
+    "desc": "Merci d'avoir rejoint notre serveur.",
+    "auth": "🔐 Vérification → <#{auth}>",
+    "intro": "📝 Présentation → <#{intro}>",
+    "warn": "⚠️ Merci de respecter les règles et de profiter du serveur.",
+    "rule_btn": "Règles",
+    "auth_btn": "Vérification",
+    "intro_btn": "Présentation",
+    "lang_label": "🌐 Langue",
+    "divider": "──────────────────────────"
+  },
+
+  "de": {
+    "title": "🎉 Willkommen!",
+    "desc": "Danke, dass du unserem Server beigetreten bist.",
+    "auth": "🔐 Verifizierung → <#{auth}>",
+    "intro": "📝 Vorstellung → <#{intro}>",
+    "warn": "⚠️ Bitte halte dich an die Regeln und hab Spaß.",
+    "rule_btn": "Regeln",
+    "auth_btn": "Verifizieren",
+    "intro_btn": "Vorstellung",
+    "lang_label": "🌐 Sprache",
+    "divider": "──────────────────────────"
+  },
+
+  "id": {
+    "title": "🎉 Selamat Datang!",
+    "desc": "Terima kasih telah bergabung dengan server kami.",
+    "auth": "🔐 Verifikasi → <#{auth}>",
+    "intro": "📝 Perkenalan → <#{intro}>",
+    "warn": "⚠️ Harap patuhi peraturan dan bersenang-senang.",
+    "rule_btn": "Aturan",
+    "auth_btn": "Verifikasi",
+    "intro_btn": "Perkenalan",
+    "lang_label": "🌐 Bahasa",
+    "divider": "──────────────────────────"
+  },
+
+  "es": {
+    "title": "🎉 ¡Bienvenido!",
+    "desc": "Gracias por unirte a nuestro servidor.",
+    "auth": "🔐 Verificación → <#{auth}>",
+    "intro": "📝 Presentación → <#{intro}>",
+    "warn": "⚠️ Sigue las reglas y disfruta tu estancia.",
+    "rule_btn": "Reglas",
+    "auth_btn": "Verificar",
+    "intro_btn": "Presentación",
+    "lang_label": "🌐 Idioma",
+    "divider": "──────────────────────────"
+  },
+
+  "pt_BR": {
+    "title": "🎉 Bem-vindo!",
+    "desc": "Obrigado por entrar no nosso servidor.",
+    "auth": "🔐 Verificação → <#{auth}>",
+    "intro": "📝 Apresentação → <#{intro}>",
+    "warn": "⚠️ Respeite as regras e aproveite.",
+    "rule_btn": "Regras",
+    "auth_btn": "Verificar",
+    "intro_btn": "Apresentação",
+    "lang_label": "🌐 Idioma",
+    "divider": "──────────────────────────"
+  }
+}
