@@ -129,7 +129,7 @@ class VoiceRoomManager(commands.Cog):
                 return await interaction.response.send_message("部屋が見つかりません。", ephemeral=True)
 
             await interaction.response.send_modal(
-                VoiceRoomManager.RenameModal(self.cog, room["voice_id"])
+                VoiceRoomManager.RenameModal(self.cog, room["voice_id"], room["text_id"])
             )
 
         # 人数制限
@@ -171,19 +171,37 @@ class VoiceRoomManager(commands.Cog):
     # Modal: 名前変更
     # -----------------------------
     class RenameModal(discord.ui.Modal, title="名前変更"):
-        def __init__(self, cog, voice_id):
+        def __init__(self, cog, voice_id: int, text_id: int):
             super().__init__()
             self.cog = cog
             self.voice_id = voice_id
-
-            self.new_name = discord.ui.TextInput(label="新しい部屋の名前", max_length=32)
+            self.text_id = text_id
+            self.new_name = discord.ui.TextInput(
+                label="新しい部屋の名前",
+                max_length=32
+            )
             self.add_item(self.new_name)
 
         async def on_submit(self, interaction: discord.Interaction):
-            voice = interaction.guild.get_channel(self.voice_id)
-            await voice.edit(name=self.new_name.value)
-            await interaction.response.send_message("名前を変更しました！", ephemeral=True)
+            guild = interaction.guild
 
+            voice = guild.get_channel(self.voice_id)
+            text = guild.get_channel(self.text_id)
+            if not voice:
+                return await interaction.response.send_message(
+                    "VCが見つかりません。",
+                    ephemeral=True
+                )
+            await voice.edit(name=self.new_name.value)
+
+            if text:
+                await text.edit(name=self.new_name.value)
+
+            await interaction.response.send_message(
+                "名前を変更しました！",
+                ephemeral=True
+            )
+            
     # -----------------------------
     # Modal: 人数制限
     # -----------------------------

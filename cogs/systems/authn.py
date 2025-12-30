@@ -8,6 +8,7 @@ from discord.ui import View, Button, Select
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path="ci/.env") # .envファイルをすべて読み込む
+SERVER_OWNER_ID = int(os.getenv("SERVER_OWNER_ID"))
 VERIFY_CHANNEL_ID = int(os.getenv("VERIFY_CHANNEL_ID"))
 VERIFIED_ROLE_ID  = int(os.getenv("VERIFIED_ROLE_ID"))
 LOG_CHANNEL_ID = int(os.getenv("AUTH_LOG_CHANNEL_ID"))
@@ -22,53 +23,210 @@ def generate_keyword(length: int = 6) -> str:
 
 # ---- ガイド埋め込み（簡略化。必要なら元の長文に差し替え可） ----
 def build_guides():
+    owner = f"<@{SERVER_OWNER_ID}>"
+
+    def pages(steps):
+        embeds = []
+        total = len(steps)
+        for i, (title, desc) in enumerate(steps, start=1):
+            e = discord.Embed(
+                title=title,
+                description=desc.format(
+                    channel=f"<#{VERIFY_CHANNEL_ID}>",
+                    SERVER_OWNER=owner
+                ),
+                color=discord.Color.blue()
+            )
+            e.set_footer(text=f"{i} / {total}")
+            embeds.append(e)
+        return embeds
+
     return {
-        "ja": discord.Embed(
-            title="認証方法ガイド",
-            description="認証方法ガイドへようこそ！\n\n"
-                        "かざま隊の集いの場では、セキュリティ上認証を行うことでチャンネルにアクセスできるようになります。\n\n",
-            color=discord.Color.blue()
-         ).add_field(name="\n\n**__ステップ1__**\n\n",value="認証のしやすさを考慮してデバイスごとに分けています。まず初めにご利用中のデバイスにあった認証方法を選択してください。\n\nボタンを押して、「✅️DMを確認してください。」と表示されれば成功です。｢❌️DMを送信できません。DMを許可してください｣と表示されればDMを許可しているかご確認ください。", inline=False)
-          .add_field(name="\n\n**__ステップ2__**\n\n",value="認証キーワードがDMで送信されます。\n\nスマホ版はキーワードを長押ししてコピーしてください。\nPC版は右側のボタンを押してコピーしてください。", inline=False)
-          .add_field(name="\n\n**__ステップ3__**\n\n",value=" **<#{VERIFY_CHANNEL_ID}>** にキーワードを送信してください。\n\nキーワードに「##」などの記号がついていても問題ありません。また、キーワードは他人に絶対に伝えないでください。", inline=False)
-          .add_field(name="\n\n**__⚠注意事項⚠__**\n\n",value="認証キーワードは一度しか使用できません。再度認証を行う場合は、再度ボタンを押して新しいキーワードを取得してください。\n\n認証に失敗した場合は、 __キーワードが正しいか、送信先チャンネルが正しいかを確認してください。", inline=False),
-        "en": discord.Embed(
-            title="Authentication Method Guide",
-            description="Welcome to the authentication method guide!\n\n"
-                        "In the Kazamatai gathering place, you can access specific channels by completing authentication.\n\n",
-            color=discord.Color.blue()
-         ).add_field(name="\n\n**__Step 1__**\n\n",value="To make authentication easier, we have separated it by device type. Please select the appropriate authentication method for your device.\n\nPress the button and if you see '✅️Check your DM', it was successful. If you see '❌️Unable to send DM. Please allow DMs', please check if DMs are allowed.", inline=False)
-          .add_field(name="\n\n**__Step 2__**\n\n",value="An authentication keyword will be sent to your DM.\n\nFor mobile devices, long-press to copy the keyword. For PC, press the button on the right to copy it.", inline=False)
-          .add_field(name="\n\n**__Step 3__**\n\n",value="Send the keyword to **<#{VERIFY_CHANNEL_ID}>**.\n\nIt doesn't matter if the keyword has symbols like '##'. Also, never share the keyword with others.", inline=False)
-          .add_field(name="\n\n**__⚠Notes⚠__**\n\n",value="The authentication keyword can only be used once. If you need to authenticate again, press the button again to get a new keyword.\n\nIf authentication fails, please check if the keyword is correct and if you are sending it to the correct channel.", inline=False),
-        "zh": discord.Embed(
-            title="认证方法指南",
-            description="欢迎来到认证方法指南！\n\n"
-                        "在風真隊粉丝服务器中，通过完成认证可以访问特定频道。\n\n",
-            color=discord.Color.blue()
-         ).add_field(name="\n\n**__步骤1__**\n\n",value="为了简化认证，我们按设备类型进行了分类。请选择适合您设备的认证方法。\n\n点击按钮，如果看到“✅️请检查您的DM”，则表示成功。如果看到“❌️无法发送DM。请允许DM”，请检查是否允许DM。", inline=False)
-          .add_field(name="\n\n**__步骤2__**\n\n",value="认证关键词将发送到您的DM。\n\n对于手机设备，长按以复制关键词。对于PC，请点击右侧按钮复制。", inline=False)
-          .add_field(name="\n\n**__步骤3__**\n\n",value="将关键词发送到 **<#{VERIFY_CHANNEL_ID}>**。\n\n关键词可以包含像 '##' 这样的符号。请勿与他人分享关键词。", inline=False)
-          .add_field(name="\n\n**__⚠注意事项⚠__**\n\n",value="认证关键词只能使用一次。如果需要重新认证，请再次点击按钮获取新的关键词。\n\n如果认证失败，请检查关键词是否正确，以及是否发送到正确的频道。", inline=False),
-        "ko": discord.Embed(
-            title="인증 방법 가이드",
-            description="인증 방법 가이드에 오신 것을 환영합니다!\n\n"
-                        "WeatherPlanet 팬 서버에서는 인증을 완료하면 특정 채널에 접근할 수 있습니다.\n\n",
-            color=discord.Color.blue()
-         ).add_field(name="\n\n**__1단계__**\n\n",value="인증을 쉽게 하기 위해 기기 유형별로 분리되어 있습니다. 사용 중인 기기에 맞는 인증 방법을 선택하세요.\n\n버튼을 누르고 '✅️DM을 확인하세요'가 표시되면 성공입니다. '❌️DM을 보낼 수 없습니다. DM을 허용하세요'가 표시되면 DM이 허용되어 있는지 확인하세요.", inline=False)
-          .add_field(name="\n\n**__2단계__**\n\n",value="인증 키워드가 DM으로 전송됩니다.\n\n모바일 기기는 키워드를 길게 눌러 복사하세요. PC는 오른쪽 버튼을 눌러 복사하세요.", inline=False)
-          .add_field(name="\n\n**__3단계__**\n\n",value=" **<#{VERIFY_CHANNEL_ID}>** 에 키워드를 보내세요.\n\n키워드에 '##'와 같은 기호가 있어도 상관없습니다. 또한, 키워드를 절대 다른 사람에게 공유하지 마세요.", inline=False)
-          .add_field(name="\n\n**__⚠주의 사항⚠__**\n\n",value="인증 키워드는 한 번만 사용할 수 있습니다. 다시 인증을 해야 하는 경우, 버튼을 다시 눌러 새 키워드를 받아야 합니다.\n\n인증에 실패한 경우, 키워드가 올바른지, 올바른 채널로 보내고 있는지 확인하세요。", inline=False),
-        "id": discord.Embed(
-            title="Panduan Metode Otentikasi",
-            description="Selamat datang di panduan metode otentikasi!\n\n"
-                        "Di server penggemar WeatherPlanet, Anda dapat mengakses saluran tertentu dengan menyelesaikan otentikasi.\n\n",
-            color=discord.Color.blue()
-         ).add_field(name="\n\n**__Langkah 1__**\n\n",value="Untuk memudahkan otentikasi, kami telah memisahkannya berdasarkan jenis perangkat. Silakan pilih metode otentikasi yang sesuai dengan perangkat Anda.\n\nTekan tombol dan jika Anda melihat '✅️Periksa DM Anda', itu berhasil. Jika Anda melihat '❌️Tidak dapat mengirim DM. Harap izinkan DM', silakan periksa apakah DM diizinkan.", inline=False)
-          .add_field(name="\n\n**__Langkah 2__**\n\n",value="Kata kunci otentikasi akan dikirim ke DM Anda.\n\nUntuk perangkat seluler, tekan lama untuk menyalin kata kunci. Untuk PC, tekan tombol di sebelah kanan untuk menyalinnya.", inline=False)
-          .add_field(name="\n\n**__Langkah 3__**\n\n",value="Kirim kata kunci ke **<#{VERIFY_CHANNEL_ID}>**.\n\nTidak masalah jika kata kunci memiliki simbol seperti '##'. Juga, jangan pernah membagikan kata kunci dengan orang lain.", inline=False)
-          .add_field(name="\n\n**__⚠Catatan⚠__**\n\n",value="Kata kunci otentikasi hanya dapat digunakan sekali. Jika Anda perlu melakukan otentikasi lagi, tekan tombol lagi untuk mendapatkan kata kunci baru.\n\nJika otentikasi gagal, periksa apakah kata kunci benar dan apakah Anda mengirimnya ke saluran yang benar.", inline=False)
+        "jp": pages([
+            ("📖 認証方法ガイド",
+             "このサーバーでは、セキュリティ上認証パネルを設置しています。\n"
+             "認証を行うことで **閲覧・発言できるチャンネルが開放** されます。\n\n"
+             "認証ができなかった場合は、{SERVER_OWNER} までご連絡ください。"),
+            ("🟢 ステップ1",
+             "認証の利便性を考慮し、デバイスごとにボタンが分かれています。\n"
+             "ご利用の端末に応じた **認証開始ボタン** を押してください。\n\n"
+             "✅ DMが届けば成功です\n"
+             "❌ 届かない場合は **DMを許可** してください"),
+            ("🟡 ステップ2",
+             "DMに **認証キーワード** が送信されます。\n\n"
+             "・スマホ：キーワード部分を長押ししてコピー\n"
+             "・PC：コードブロック右上のボタンを押してコピー"),
+            ("🔵 ステップ3",
+             "{channel} に **キーワードを送信** してください。\n\n"
+             "記号（##など）が付いていても問題ありません。"),
+            ("⚠ 注意事項",
+             "・キーワードは **1回限り** です。認証後は無効になります。\n"
+             "・認証に失敗した場合、キーワードを再発行してください。\n"
+             "・他人に絶対に共有しないでください。")
+        ]),
+
+        "en": pages([
+            ("📖 Authentication Guide",
+             "This server uses an authentication panel for security purposes.\n"
+             "By completing authentication, **viewing and chatting channels will be unlocked**.\n\n"
+             "If authentication fails, please contact {SERVER_OWNER}."),
+            ("🟢 Step 1",
+             "Buttons are separated by device for convenience.\n"
+             "Press the **authentication button** that matches your device.\n\n"
+             "✅ DM received = success\n"
+             "❌ If not, please **allow DMs**"),
+            ("🟡 Step 2",
+             "You will receive an **authentication keyword** via DM.\n\n"
+             "• Mobile: long-press the keyword to copy\n"
+             "• PC: click the copy button on the code block"),
+            ("🔵 Step 3",
+             "Send the **keyword** to {channel}.\n\n"
+             "Symbols such as ## do not matter."),
+            ("⚠ Notes",
+             "• Keywords are **one-time use only**.\n"
+             "• If authentication fails, reissue a new keyword.\n"
+             "• Never share your keyword with others.")
+        ]),
+
+        "zh": pages([
+            ("📖 认证指南",
+             "本服务器出于安全原因设置了认证面板。\n"
+             "完成认证后，**即可查看和发言频道**。\n\n"
+             "若认证失败，请联系 {SERVER_OWNER}。"),
+            ("步骤 1",
+             "根据设备类型区分了不同的认证按钮。\n"
+             "请选择适合您设备的 **认证按钮**。\n\n"
+             "✅ 收到DM表示成功\n"
+             "❌ 未收到请开启DM"),
+            ("步骤 2",
+             "认证关键词将通过 DM 发送。\n\n"
+             "・手机：长按复制\n"
+             "・PC：点击代码框右上角复制"),
+            ("步骤 3",
+             "请将关键词发送到 {channel}。\n\n"
+             "包含符号（如 ##）也没有问题。"),
+            ("注意事项",
+             "・关键词 **只能使用一次**。\n"
+             "・失败时请重新获取关键词。\n"
+             "・请勿与他人共享。")
+        ]),
+
+        "ko": pages([
+            ("📖 인증 가이드",
+             "이 서버는 보안을 위해 인증 패널을 사용합니다.\n"
+             "인증을 완료하면 **채널 열람 및 채팅이 가능** 합니다.\n\n"
+             "인증에 실패하면 {SERVER_OWNER} 에게 문의하세요."),
+            ("1단계",
+             "기기별로 인증 버튼이 나뉘어 있습니다.\n"
+             "사용 중인 기기에 맞는 **인증 버튼** 을 누르세요.\n\n"
+             "✅ DM 수신 = 성공\n"
+             "❌ 수신 안 되면 DM 허용"),
+            ("2단계",
+             "DM으로 **인증 키워드** 가 전송됩니다.\n\n"
+             "・모바일: 길게 눌러 복사\n"
+             "・PC: 코드 블록 복사 버튼 클릭"),
+            ("3단계",
+             "{channel} 에 키워드를 보내세요.\n\n"
+             "기호(## 등)가 붙어 있어도 문제 없습니다."),
+            ("주의사항",
+             "・키워드는 **1회용** 입니다.\n"
+             "・실패 시 재발급하세요。\n"
+             "・절대 공유하지 마세요.")
+        ]),
+
+        "fr": pages([
+            ("📖 Guide d’authentification",
+             "Ce serveur utilise un panneau d’authentification pour des raisons de sécurité.\n"
+             "Après authentification, **les salons seront accessibles**.\n\n"
+             "En cas de problème, contactez {SERVER_OWNER}."),
+            ("Étape 1",
+             "Les boutons sont séparés par type d’appareil.\n"
+             "Appuyez sur le **bouton approprié**.\n\n"
+             "✅ DM reçu = succès\n"
+             "❌ Autorisez les DM si nécessaire"),
+            ("Étape 2",
+             "Un **mot-clé d’authentification** sera envoyé par DM."),
+            ("Étape 3",
+             "Envoyez le mot-clé dans {channel}."),
+            ("Attention",
+             "• Mot-clé **à usage unique**.\n"
+             "• Régénérez-le en cas d’échec.\n"
+             "• Ne le partagez jamais.")
+        ]),
+
+        "de": pages([
+            ("📖 Authentifizierungsanleitung",
+             "Dieser Server nutzt ein Authentifizierungspanel aus Sicherheitsgründen.\n"
+             "Nach erfolgreicher Authentifizierung werden **Kanäle freigeschaltet**.\n\n"
+             "Bei Problemen wenden Sie sich an {SERVER_OWNER}."),
+            ("Schritt 1",
+             "Buttons sind nach Gerätetyp getrennt.\n"
+             "Drücken Sie den **passenden Button**."),
+            ("Schritt 2",
+             "Sie erhalten ein **Authentifizierungskennwort** per DM."),
+            ("Schritt 3",
+             "Senden Sie das Kennwort an {channel}."),
+            ("Hinweis",
+             "• Einmalig gültig.\n"
+             "• Bei Fehler neu generieren.\n"
+             "• Nicht weitergeben.")
+        ]),
+
+        "id": pages([
+            ("📖 Panduan Otentikasi",
+             "Server ini menggunakan panel otentikasi demi keamanan.\n"
+             "Setelah otentikasi, **saluran akan terbuka**.\n\n"
+             "Jika gagal, hubungi {SERVER_OWNER}."),
+            ("Langkah 1",
+             "Tombol dibedakan berdasarkan perangkat.\n"
+             "Tekan **tombol yang sesuai**."),
+            ("Langkah 2",
+             "Anda akan menerima **kata sandi otentikasi** via DM."),
+            ("Langkah 3",
+             "Kirim ke {channel}."),
+            ("Catatan",
+             "• Sekali pakai.\n"
+             "• Buat ulang jika gagal.\n"
+             "• Jangan dibagikan.")
+        ]),
+
+        "es": pages([
+            ("📖 Guía de Autenticación",
+             "Este servidor utiliza un panel de autenticación por seguridad.\n"
+             "Tras autenticarte, **los canales se desbloquearán**.\n\n"
+             "Si falla, contacta a {SERVER_OWNER}."),
+            ("Paso 1",
+             "Los botones están separados por dispositivo.\n"
+             "Pulsa el **botón adecuado**."),
+            ("Paso 2",
+             "Recibirás una **clave de autenticación** por DM."),
+            ("Paso 3",
+             "Envíala a {channel}."),
+            ("Nota",
+             "• Uso único.\n"
+             "• Regenera si falla.\n"
+             "• No compartir.")
+        ]),
+
+        "pt_BR": pages([
+            ("📖 Guia de Autenticação",
+             "Este servidor utiliza um painel de autenticação por segurança.\n"
+             "Após autenticar, **os canais serão liberados**.\n\n"
+             "Se falhar, entre em contato com {SERVER_OWNER}."),
+            ("Passo 1",
+             "Os botões são separados por dispositivo.\n"
+             "Pressione o **botão correto**."),
+            ("Passo 2",
+             "Você receberá uma **chave de autenticação** por DM."),
+            ("Passo 3",
+             "Envie para {channel}."),
+            ("Aviso",
+             "• Uso único.\n"
+             "• Regerar se falhar.\n"
+             "• Não compartilhe.")
+        ])
     }
+
 
 
 GUIDES = build_guides()
@@ -144,7 +302,7 @@ class PCVerifyButton(Button):
 class GuideButton(Button):
     def __init__(self):
         super().__init__(
-            label="📖認証方法ガイド / Authn method guide",
+            label="📖 認証方法ガイド / Authn method guide",
             style=discord.ButtonStyle.primary,
             custom_id="wp:verify:guide"
         )
@@ -153,35 +311,61 @@ class GuideButton(Button):
         view = discord.ui.View(timeout=60)
         view.add_item(LanguageSelect())
         await interaction.response.send_message(
-            "言語を選択してください / Select a language:",
+            "🌐 言語を選択してください / Select a language:",
             view=view,
             ephemeral=True
         )
 
 
+ # ---- Guide言語選択用Select ----
 class LanguageSelect(Select):
     def __init__(self):
-        options = [
-            discord.SelectOption(label="日本語", value="ja", description="日本語のガイド"),
-            discord.SelectOption(label="English", value="en", description="Guide in English"),
-            discord.SelectOption(label="中文", value="zh", description="中文指南"),
-            discord.SelectOption(label="한국어", value="ko", description="한국어 가이드"),
-            discord.SelectOption(label="Bahasa Indonesia", value="id", description="Panduan Bahasa Indonesia"),
-        ]
         super().__init__(
-            placeholder="言語を選択 / Select a language",
-            options=options,
-            min_values=1,
-            max_values=1,
+            placeholder="🌐 言語を選択 / Select a language",
+            options=[
+                discord.SelectOption(label="日本語", value="jp",emoji="🇯🇵"),
+                discord.SelectOption(label="English", value="en",emoji="🇺🇸"),
+                discord.SelectOption(label="中文", value="zh",emoji="🇨🇳"),
+                discord.SelectOption(label="한국어", value="ko",emoji="🇰🇷"),
+                discord.SelectOption(label="Français", value="fr",emoji="🇫🇷"),
+                discord.SelectOption(label="Deutsch", value="de",emoji="🇩🇪"),
+                discord.SelectOption(label="Bahasa Indonesia", value="id",emoji="🇮🇩"),
+                discord.SelectOption(label="Español", value="es",emoji="🇪🇸"),
+                discord.SelectOption(label="Português (BR)", value="pt_BR",emoji="🇧🇷"),
+            ]
         )
 
     async def callback(self, interaction: discord.Interaction):
-        selected = self.values[0]
-        embed = GUIDES.get(selected)
-        if embed:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-        else:
-            await interaction.response.send_message("その言語のガイドはありません。", ephemeral=True)
+        pages = GUIDES[self.values[0]]
+        await interaction.response.send_message(
+            embed=pages[0],
+            view=GuidePager(pages),
+            ephemeral=True
+        )
+
+
+# ----Guideのページ送り用View----
+class GuidePager(View):
+    def __init__(self, embeds):
+        super().__init__(timeout=120)
+        self.embeds = embeds
+        self.index = 0
+
+    async def update(self, interaction):
+        await interaction.response.edit_message(
+            embed=self.embeds[self.index],
+            view=self
+        )
+
+    @discord.ui.button(label="⬅", style=discord.ButtonStyle.secondary)
+    async def prev(self, interaction: discord.Interaction, _):
+        self.index = (self.index - 1) % len(self.embeds)
+        await self.update(interaction)
+
+    @discord.ui.button(label="➡", style=discord.ButtonStyle.secondary)
+    async def next(self, interaction: discord.Interaction, _):
+        self.index = (self.index + 1) % len(self.embeds)
+        await self.update(interaction)
 
 
 class VerifyView(View):
@@ -215,10 +399,13 @@ class VerificationCog(commands.Cog):
             description=(
                 f"下のボタンからご利用の端末に応じて認証を開始してください。\n"
                 f"DMに認証キーワードが送信されます。DMを開放しているかご確認ください。\n"
-                f"キーワードは <#{VERIFY_CHANNEL_ID}>にて送信してください。\n"
+                f"キーワードは <#{VERIFY_CHANNEL_ID}>にて送信してください。\n\n"
+                f"Please start authentication using the buttons below according to your device.\n"
+                f"The keyword will be sent to your DM. Please check if your DM is open.\n"
+                f"Please send the keyword to <#{VERIFY_CHANNEL_ID}>."
             ),
             color=discord.Color.green()
-        ).set_footer(text="©2025 かざま隊の集いの場 | authn panel")
+        ).set_footer(text="©2025 かざま隊の集いの場")
 
         await channel.send(embed=embed, view=VerifyView())
         await ctx.message.add_reaction("✅")
@@ -256,9 +443,9 @@ class VerificationCog(commands.Cog):
                 try:
                     await message.author.add_roles(role, reason="Verification passed")
                 except discord.Forbidden:
-                    await message.channel.send("⚠ ロール付与に失敗しました。Botの権限を確認してください。", delete_after=8)
+                    await message.channel.send("⚠ ロール付与に失敗しました。サーバーオーナーまでご連絡ください。", delete_after=8)
             else:
-                await message.channel.send("⚠ ロールが見つかりませんでした。VERIFIED_ROLE_ID を確認してください。", delete_after=8)
+                await message.channel.send("⚠ ロールが見つかりませんでした。サーバーオーナーまでご連絡ください。さ", delete_after=8)
 
             try:
                 await message.author.send("✅ 認証が完了しました！ようこそ！")
@@ -271,9 +458,9 @@ class VerificationCog(commands.Cog):
                 await log.send(
                     f"✅ {message.author.mention} が認証されました！\n"
                     f"👤ユーザー名: {message.author} (ID: {message.author.id})\n"
+                    f"📅アカウント作成日: {created_at}"
                     f"🔍サーバー参加時刻: {joined_at}\n"
                     f"🏵認証時刻: {verified_at}\n"
-                    f"📅アカウント作成日: {created_at}"
                 )
 
             except discord.Forbidden:
