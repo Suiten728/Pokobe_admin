@@ -2,182 +2,158 @@ import discord
 from discord.ext import commands
 import json
 import os
-from datetime import datetime
 
-DATA_FILE = "data/omikuji.json"
 CONTROL_FILE = "data/omikuji_control.json"
 
+RESULTS = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶"]
 
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        return {}
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
 
-def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-
+# -------------------
+# JSON操作
+# -------------------
 def load_control():
     if not os.path.exists(CONTROL_FILE):
-        return {"tester": []}
+        return {
+            "tester": [],
+            "probability": {
+                "mode": "normal",
+                "weights": {r: 1 for r in RESULTS}
+            }
+        }
     with open(CONTROL_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 def save_control(data):
     with open(CONTROL_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
-# ==================
-#   永続ボタン
-# ==================
-class OmikujiControlView(discord.ui.View):
-    def __init__(self, bot):
-        super().__init__(timeout=None)
-        self.bot = bot
+# -------------------
+# 表示用計算
+# -------------------
+def format_probability(weights):
+    total = sum(weights.values())
+    lines = []
 
-    # ① テスターモード設定
-    @discord.ui.button(label="テスターモード設定", style=discord.ButtonStyle.green, custom_id="omikuji:set_tester")
-    async def set_tester(self, interaction: discord.Interaction, button: discord.ui.Button):
+    for k in RESULTS:
+        v = weights.get(k, 1)
+        percent = (v / total) * 100 if total else 0
+        inv = round(total / v, 2) if v else "∞"
+
+        lines.append(
+            f"**{k}** ： {percent:.2f}%（1 / {inv}）"
+        )
+
+    return "\n".join(lines)
+
+
+# ===================
+# プルダウン
+# ===================
+class ProbabilitySelect(discord.ui.Select):
+    def __init__(self):
+        super().__init__(
+            placeholder="おみくじ確率モードを選択",
+            options=[
+                discord.SelectOption(label="通常", description="全て同じ確率", value="normal"),
+                discord.SelectOption(label="カスタム", description="確率を自由に設定", value="custom")
+            ],
+            custom_id="omikuji:prob_mode"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
         if interaction.user.id != interaction.client.owner_id:
             return await interaction.response.send_message("オーナーのみ使用できます。", ephemeral=True)
-
-        await interaction.response.send_message("テスターモードにしたい人をメンション or ID で送ってください。", ephemeral=True)
-
-        def check(msg):
-            return msg.author.id == interaction.user.id and msg.channel == interaction.channel
-
-        msg = await interaction.client.wait_for("message", check=check)
-        user = None
-
-        if msg.mentions:
-            user = msg.mentions[0]
-        else:
-            try:
-                user = await interaction.guild.fetch_member(int(msg.content))
-            except:
-                return await interaction.followup.send("ユーザーが見つかりません。", ephemeral=True)
 
         control = load_control()
-        if str(user.id) not in control["tester"]:
-            control["tester"].append(str(user.id))
-            save_control(control)
+        control["probability"]["mode"] = self.values[0]
+        save_control(control)
 
-        await interaction.followup.send(f"{user.mention} をテスターモードに設定しました！", ephemeral=True)
+        await interaction.response.send_message(
+            f"確率モードを **{self.values[0]}** に設定しました。",
+            ephemeral=True
+        )
 
-    # ② 連続参拝日数の変更
-    @discord.ui.button(label="連続日数を変更", style=discord.ButtonStyle.blurple, custom_id="omikuji:edit_streak")
-    async def edit_streak(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+# ===================
+# 管理View
+# ===================
+class OmikujiControlView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(ProbabilitySelect())
+
+    @discord.ui.button(label="カスタム確率を設定", style=discord.ButtonStyle.blurple)
+    async def set_prob(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != interaction.client.owner_id:
             return await interaction.response.send_message("オーナーのみ使用できます。", ephemeral=True)
 
-        await interaction.response.send_message("対象ユーザーをメンション or ID で送信してください。", ephemeral=True)
+        await interaction.response.send_message(
+            "以下の形式で送ってください（数字は重み）\n\n"
+            "大吉 5\n中吉 4\n小吉 3\n吉 3\n末吉 2\n凶 1\n大凶 1",
+            ephemeral=True
+        )
 
-        def check(msg):
-            return msg.author.id == interaction.user.id and msg.channel == interaction.channel
+        def check(m):
+            return m.author == interaction.user and m.channel == interaction.channel
+
         msg = await interaction.client.wait_for("message", check=check)
 
-        if msg.mentions:
-            user = msg.mentions[0]
-        else:
+        weights = {}
+        for line in msg.content.splitlines():
             try:
-                user = await interaction.guild.fetch_member(int(msg.content))
+                k, v = line.split()
+                if k in RESULTS:
+                    weights[k] = int(v)
             except:
-                return await interaction.followup.send("ユーザーが見つかりません。", ephemeral=True)
+                pass
 
-        await interaction.followup.send("新しい連続参拝日数を送ってください。", ephemeral=True)
-        msg2 = await interaction.client.wait_for("message", check=check)
+        control = load_control()
+        control["probability"]["weights"] = weights
+        control["probability"]["mode"] = "custom"
+        save_control(control)
 
-        try:
-            new_count = int(msg2.content)
-        except:
-            return await interaction.followup.send("数字で入力してください。", ephemeral=True)
+        await interaction.followup.send("✅ カスタム確率を保存しました。", ephemeral=True)
 
-        data = load_data()
-        user_id = str(user.id)
+    @discord.ui.button(label="確率を確認", style=discord.ButtonStyle.green)
+    async def check_prob(self, interaction: discord.Interaction, button: discord.ui.Button):
+        control = load_control()
+        prob = control["probability"]
 
-        if user_id not in data:
-            data[user_id] = {"last_date": datetime.now().strftime("%Y-%m-%d"), "count": 0}
-
-        data[user_id]["count"] = new_count
-        save_data(data)
-
-        await interaction.followup.send(f"{user.mention} の連続参拝日数を **{new_count}日** に変更しました！", ephemeral=True)
-
-    # ③ 記録リセット
-    @discord.ui.button(label="記録リセット", style=discord.ButtonStyle.red, custom_id="omikuji:reset_user")
-    async def reset_user(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != interaction.client.owner_id:
-            return await interaction.response.send_message("オーナーのみ使用できます。", ephemeral=True)
-
-        await interaction.response.send_message("リセットしたいユーザーをメンション or ID で送信してください。", ephemeral=True)
-
-        def check(msg):
-            return msg.author.id == interaction.user.id and msg.channel == interaction.channel
-        msg = await interaction.client.wait_for("message", check=check)
-
-        if msg.mentions:
-            user = msg.mentions[0]
+        if prob["mode"] == "normal":
+            desc = "現在は **全て均等確率** です。"
         else:
-            try:
-                user = await interaction.guild.fetch_member(int(msg.content))
-            except:
-                return await interaction.followup.send("ユーザーが見つかりません。", ephemeral=True)
-
-        data = load_data()
-        user_id = str(user.id)
-
-        if user_id in data:
-            del data[user_id]
-            save_data(data)
-            await interaction.followup.send(f"{user.mention} の記録をリセットしました！", ephemeral=True)
-        else:
-            await interaction.followup.send("記録がありません。", ephemeral=True)
-
-    # ④ 今日引いた人一覧
-    @discord.ui.button(label="今日引いた人一覧", style=discord.ButtonStyle.gray, custom_id="omikuji:today_list")
-    async def today_list(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != interaction.client.owner_id:
-            return await interaction.response.send_message("オーナーのみ使用できます。", ephemeral=True)
-
-        data = load_data()
-        today = datetime.now().strftime("%Y-%m-%d")
-
-        users = [f"<@{uid}>" for uid, info in data.items() if info["last_date"] == today]
+            desc = format_probability(prob["weights"])
 
         embed = discord.Embed(
-            title="📅 今日おみくじを引いた人一覧",
-            description="\n".join(users) if users else "誰も引いていません。",
+            title="🎯 おみくじ確率一覧",
+            description=desc,
             color=discord.Color.green()
         )
+        embed.set_footer(text=f"モード：{prob['mode']}")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-# ===========================
-#   コグ本体（prefix）
-# ===========================
+# ===================
+# Cog
+# ===================
 class OmikujiControlCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @commands.command(name="omikuji_ctrl")
     @commands.is_owner()
-    async def omikuji_control(self, ctx):
+    async def ctrl(self, ctx):
         embed = discord.Embed(
-            title="🍃 おみくじ管理パネル 🍃",
-            description="おみくじの設定を管理できます。",
+            title="🍃 おみくじ管理パネル",
+            description="確率設定・確認ができます。",
             color=discord.Color.green()
         )
-
-        view = OmikujiControlView(self.bot)
-        await ctx.send(embed=embed, view=view)
+        await ctx.send(embed=embed, view=OmikujiControlView())
 
 
 async def setup(bot):
-    # 永続化ボタンの登録
-    bot.add_view(OmikujiControlView(bot))
-
+    bot.add_view(OmikujiControlView())
     await bot.add_cog(OmikujiControlCog(bot))
-
