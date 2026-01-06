@@ -74,6 +74,20 @@ class OmikujiCog(commands.Cog):
             ]
         }
 
+def get_omikuji_result(results):
+    control = load_control()
+    prob = control.get("probability", {})
+
+    # 通常モード → 完全ランダム（今まで通り）
+    if prob.get("mode", "normal") == "normal":
+        return random.choice(results)
+
+    # カスタムモード
+    weights = prob.get("weights", {})
+    weight_list = [weights.get(r, 1) for r in results]
+
+    return random.choices(results, weights=weight_list, k=1)[0]
+
     @commands.hybrid_command(name="おみくじ", description="風真いろはのコメント付きおみくじ！")
     async def omikuji(self, ctx):
         user_id = str(ctx.author.id)
@@ -105,7 +119,7 @@ class OmikujiCog(commands.Cog):
 
         save_data(data)
 
-        result = random.choice(self.results)
+        result = get_omikuji_result(self.results)
         iroha_msg = random.choice(self.iroha_messages[result])
         color = discord.Color.random()
 
