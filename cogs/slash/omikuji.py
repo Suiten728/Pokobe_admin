@@ -20,13 +20,40 @@ def save_data(data):
 
 def load_control():
     if not os.path.exists(CONTROL_FILE):
-        return {"tester": []}
+        return {
+            "tester": [],
+            "probability": {
+                "mode": "normal",
+                "weights": {}
+            }
+        }
+
     with open(CONTROL_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+
+    data.setdefault("tester", [])
+    data.setdefault("probability", {"mode": "normal", "weights": {}})
+
+    return data
+
 
 def save_control(data):
     with open(CONTROL_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+
+def get_omikuji_result(results):
+    control = load_control()
+    prob = control.get("probability", {})
+
+    # 通常モード → 完全ランダム（今まで通り）
+    if prob.get("mode", "normal") == "normal":
+        return random.choice(results)
+
+    # カスタムモード
+    weights = prob.get("weights", {})
+    weight_list = [weights.get(r, 1) for r in results]
+
+    return random.choices(results, weights=weight_list, k=1)[0]
 
 class OmikujiCog(commands.Cog):
     def __init__(self, bot):
@@ -79,20 +106,6 @@ class OmikujiCog(commands.Cog):
                 "今日は慎重にいくでござる！でも、ござるが傍についているから、きっと大丈夫でござる！"
             ]
         }
-
-def get_omikuji_result(results):
-    control = load_control()
-    prob = control.get("probability", {})
-
-    # 通常モード → 完全ランダム（今まで通り）
-    if prob.get("mode", "normal") == "normal":
-        return random.choice(results)
-
-    # カスタムモード
-    weights = prob.get("weights", {})
-    weight_list = [weights.get(r, 1) for r in results]
-
-    return random.choices(results, weights=weight_list, k=1)[0]
 
     @commands.hybrid_command(name="おみくじ", description="風真いろはのコメント付きおみくじ！")
     async def omikuji(self, ctx):
