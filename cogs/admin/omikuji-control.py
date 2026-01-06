@@ -11,7 +11,7 @@ RESULTS = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "�
 MAX_PRESETS = 5
 
 # =====================
-# JSON操作
+# JSON
 # =====================
 def load_data():
     if not os.path.exists(DATA_FILE):
@@ -30,8 +30,8 @@ def load_control():
             "probability": {
                 "mode": "normal",   # normal / custom / preset
                 "weights": {r: 1 for r in RESULTS},
-                "active_preset": None,
-                "presets": {}
+                "presets": {},
+                "active_preset": None
             }
         }
     with open(CONTROL_FILE, "r", encoding="utf-8") as f:
@@ -66,7 +66,7 @@ class TesterModal(discord.ui.Modal, title="テスターモード切替"):
 
         if uid in control["tester"]:
             control["tester"].remove(uid)
-            msg = "❌ テスターモードから解除しました。"
+            msg = "❌ テスターモードを解除しました。"
         else:
             control["tester"].append(uid)
             msg = "✅ テスターモードに設定しました。"
@@ -74,7 +74,24 @@ class TesterModal(discord.ui.Modal, title="テスターモード切替"):
         save_control(control)
         await interaction.response.send_message(msg, ephemeral=True)
 
-class UserStatusModal(discord.ui.Modal, title="ユーザー状態確認"):
+class StreakModal(discord.ui.Modal, title="連続日数変更"):
+    user_id = discord.ui.TextInput(label="ユーザーID")
+    days = discord.ui.TextInput(label="連続日数", placeholder="数字")
+
+    async def on_submit(self, interaction: discord.Interaction):
+        data = load_data()
+        uid = self.user_id.value.strip()
+        count = int(self.days.value)
+
+        if uid not in data:
+            data[uid] = {"last_date": datetime.now().strftime("%Y-%m-%d"), "count": 0}
+
+        data[uid]["count"] = count
+        save_data(data)
+
+        await interaction.response.send_message("✅ 連続日数を変更しました。", ephemeral=True)
+
+class UserInfoModal(discord.ui.Modal, title="ユーザー情報検索"):
     user_id = discord.ui.TextInput(label="ユーザーID")
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -82,29 +99,19 @@ class UserStatusModal(discord.ui.Modal, title="ユーザー状態確認"):
         uid = self.user_id.value.strip()
 
         if uid not in data:
-            return await interaction.response.send_message(
-                "このユーザーはまだおみくじを引いていません。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("記録がありません。", ephemeral=True)
 
         info = data[uid]
         today = datetime.now().strftime("%Y-%m-%d")
 
-        embed = discord.Embed(
-            title="👤 ユーザーおみくじ状態",
-            color=discord.Color.green()
-        )
-        embed.add_field(name="最後に引いた日", value=info["last_date"], inline=False)
-        embed.add_field(name="連続参拝日数", value=f'{info["count"]}日', inline=False)
-        embed.add_field(
-            name="今日引いたか",
-            value="はい" if info["last_date"] == today else "いいえ",
-            inline=False
-        )
+        embed = discord.Embed(title="👤 ユーザー情報", color=discord.Color.green())
+        embed.add_field(name="最終日", value=info["last_date"], inline=False)
+        embed.add_field(name="連続日数", value=f'{info["count"]}日', inline=False)
+        embed.add_field(name="今日引いたか", value="はい" if info["last_date"] == today else "いいえ")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-class ProbabilityModal(discord.ui.Modal, title="カスタム確率設定"):
+class ProbabilityModal(discord.ui.Modal, title="確率変更"):
     weights = discord.ui.TextInput(
         label="確率（重み）",
         style=discord.TextStyle.paragraph,
@@ -122,17 +129,19 @@ class ProbabilityModal(discord.ui.Modal, title="カスタム確率設定"):
                 pass
 
         control = load_control()
-        control["probability"]["mode"] = "custom"
         control["probability"]["weights"] = weights
+        control["probability"]["mode"] = "custom"
         control["probability"]["active_preset"] = None
         save_control(control)
 
+        view = SavePresetView()
         await interaction.response.send_message(
-            "✅ カスタム確率を設定しました。\nプリセットとして保存することもできます。",
+            "✅ 確率を変更しました！\nこの確率をプリセットに登録しますか？",
+            view=view,
             ephemeral=True
         )
 
-class PresetNameModal(discord.ui.Modal, title="プリセット名を入力"):
+class PresetNameModal(discord.ui.Modal, title="プリセット名変更"):
     name = discord.ui.TextInput(label="プリセット名")
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -140,77 +149,109 @@ class PresetNameModal(discord.ui.Modal, title="プリセット名を入力"):
         presets = control["probability"]["presets"]
 
         if len(presets) >= MAX_PRESETS:
-            return await interaction.response.send_message(
-                "❌ プリセットは最大5個までです。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("❌ プリセットは最大5個までです。", ephemeral=True)
 
         presets[self.name.value] = control["probability"]["weights"]
         control["probability"]["mode"] = "preset"
         control["probability"]["active_preset"] = self.name.value
 
         save_control(control)
-        await interaction.response.send_message(
-            f"✅ プリセット **{self.name.value}** を保存しました。",
-            ephemeral=True
-        )
+        await interaction.response.send_message("✅ プリセットを保存しました。", ephemeral=True)
 
 # =====================
-# View
+# Views
 # =====================
-class OmikujiControlView(discord.ui.View):
+class SavePresetView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="テスターモード切替", style=discord.ButtonStyle.green, custom_id="omikuji:tester")
-    async def tester(self, interaction: discord.Interaction, _):
-        await interaction.response.send_modal(TesterModal())
-
-    @discord.ui.button(label="ユーザー状態確認", style=discord.ButtonStyle.gray, custom_id="omikuji:status")
-    async def status(self, interaction: discord.Interaction, _):
-        await interaction.response.send_modal(UserStatusModal())
-
-    @discord.ui.button(label="確率変更（カスタム）", style=discord.ButtonStyle.blurple, custom_id="omikuji:prob")
-    async def prob(self, interaction: discord.Interaction, _):
-        await interaction.response.send_modal(ProbabilityModal())
-
-    @discord.ui.button(label="プリセットとして保存", style=discord.ButtonStyle.green, custom_id="omikuji:save_preset")
-    async def save_preset(self, interaction: discord.Interaction, _):
+    @discord.ui.button(label="登録する", style=discord.ButtonStyle.green, custom_id="omikuji:save_yes")
+    async def yes(self, interaction: discord.Interaction, _):
         await interaction.response.send_modal(PresetNameModal())
+
+    @discord.ui.button(label="登録しない", style=discord.ButtonStyle.gray, custom_id="omikuji:save_no")
+    async def no(self, interaction: discord.Interaction, _):
+        await interaction.response.send_message("❌ 登録しませんでした。", ephemeral=True)
+
+class PresetSelect(discord.ui.Select):
+    def __init__(self):
+        control = load_control()
+        options = [discord.SelectOption(label="通常", value="normal")]
+
+        for name in control["probability"]["presets"]:
+            options.append(discord.SelectOption(label=name, value=name))
+
+        super().__init__(
+            placeholder="確率プリセット選択",
+            options=options,
+            custom_id="omikuji:preset_select"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        control = load_control()
+        val = self.values[0]
+
+        if val == "normal":
+            control["probability"]["mode"] = "normal"
+        else:
+            control["probability"]["mode"] = "preset"
+            control["probability"]["weights"] = control["probability"]["presets"][val]
+            control["probability"]["active_preset"] = val
+
+        save_control(control)
+        await interaction.response.send_message("✅ プリセットを適用しました。", ephemeral=True)
+
+class OmikujiControlView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(PresetSelect())
+
+    @discord.ui.button(label="テスターモード切替", style=discord.ButtonStyle.green, custom_id="omikuji:tester")
+    async def tester(self, i, _): await i.response.send_modal(TesterModal())
+
+    @discord.ui.button(label="連続日数変更", style=discord.ButtonStyle.blurple, custom_id="omikuji:streak")
+    async def streak(self, i, _): await i.response.send_modal(StreakModal())
+
+    @discord.ui.button(label="記録リセット", style=discord.ButtonStyle.red, custom_id="omikuji:reset")
+    async def reset(self, interaction: discord.Interaction, _):
+        await interaction.response.send_message("UserIDを送信してください。", ephemeral=True)
+
+    @discord.ui.button(label="ユーザー情報検索", style=discord.ButtonStyle.gray, custom_id="omikuji:info")
+    async def info(self, i, _): await i.response.send_modal(UserInfoModal())
+
+    @discord.ui.button(label="今日引いた人数", style=discord.ButtonStyle.secondary, custom_id="omikuji:today")
+    async def today(self, interaction: discord.Interaction, _):
+        data = load_data()
+        today = datetime.now().strftime("%Y-%m-%d")
+        users = [f"<@{u}>" for u, v in data.items() if v["last_date"] == today]
+        await interaction.response.send_message(
+            "\n".join(users) if users else "誰も引いていません。",
+            ephemeral=True
+        )
 
     @discord.ui.button(label="確率確認", style=discord.ButtonStyle.secondary, custom_id="omikuji:check")
     async def check(self, interaction: discord.Interaction, _):
         control = load_control()
-        prob = control["probability"]
-
-        desc = (
-            "現在は **均等確率**"
-            if prob["mode"] == "normal"
-            else format_probability(prob["weights"])
+        await interaction.response.send_message(
+            format_probability(control["probability"]["weights"]),
+            ephemeral=True
         )
 
-        embed = discord.Embed(
-            title="🎯 おみくじ確率",
-            description=desc,
-            color=discord.Color.green()
-        )
-        embed.set_footer(text=f"モード：{prob['mode']}")
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+    @discord.ui.button(label="確率変更", style=discord.ButtonStyle.blurple, custom_id="omikuji:change")
+    async def change(self, i, _): await i.response.send_modal(ProbabilityModal())
 
 # =====================
 # Cog
 # =====================
 class OmikujiControlCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot): self.bot = bot
 
     @commands.command(name="omikuji_ctrl")
     @commands.is_owner()
     async def ctrl(self, ctx):
         embed = discord.Embed(
             title="🍃 おみくじ管理パネル",
-            description="モーダル対応 管理UI（プリセット対応）",
+            description="おみくじの管理パネル",
             color=discord.Color.green()
         )
         await ctx.send(embed=embed, view=OmikujiControlView())
