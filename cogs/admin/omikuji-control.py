@@ -8,9 +8,9 @@ CONTROL_FILE = "data/omikuji_control.json"
 RESULTS = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶"]
 
 
-# -------------------
+# ===================
 # JSON操作
-# -------------------
+# ===================
 def load_control():
     if not os.path.exists(CONTROL_FILE):
         return {
@@ -20,8 +20,16 @@ def load_control():
                 "weights": {r: 1 for r in RESULTS}
             }
         }
+
     with open(CONTROL_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+
+    data.setdefault("tester", [])
+    data.setdefault("probability", {})
+    data["probability"].setdefault("mode", "normal")
+    data["probability"].setdefault("weights", {r: 1 for r in RESULTS})
+
+    return data
 
 
 def save_control(data):
@@ -29,9 +37,9 @@ def save_control(data):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
-# -------------------
+# ===================
 # 表示用計算
-# -------------------
+# ===================
 def format_probability(weights):
     total = sum(weights.values())
     lines = []
@@ -40,10 +48,7 @@ def format_probability(weights):
         v = weights.get(k, 1)
         percent = (v / total) * 100 if total else 0
         inv = round(total / v, 2) if v else "∞"
-
-        lines.append(
-            f"**{k}** ： {percent:.2f}%（1 / {inv}）"
-        )
+        lines.append(f"**{k}** ： {percent:.2f}%（1 / {inv}）")
 
     return "\n".join(lines)
 
@@ -59,7 +64,7 @@ class ProbabilitySelect(discord.ui.Select):
                 discord.SelectOption(label="通常", description="全て同じ確率", value="normal"),
                 discord.SelectOption(label="カスタム", description="確率を自由に設定", value="custom")
             ],
-            custom_id="omikuji:prob_mode"
+            custom_id="omikuji:prob_mode"  # ★必須
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -81,17 +86,21 @@ class ProbabilitySelect(discord.ui.Select):
 # ===================
 class OmikujiControlView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=None)
+        super().__init__(timeout=None)  # ★ 永続View
         self.add_item(ProbabilitySelect())
 
-    @discord.ui.button(label="カスタム確率を設定", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(
+        label="カスタム確率を設定",
+        style=discord.ButtonStyle.blurple,
+        custom_id="omikuji:set_prob"  # ★必須
+    )
     async def set_prob(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != interaction.client.owner_id:
             return await interaction.response.send_message("オーナーのみ使用できます。", ephemeral=True)
 
         await interaction.response.send_message(
             "以下の形式で送ってください（数字は重み）\n\n"
-            "大吉 5\n中吉 4\n小吉 3\n吉 3\n末吉 2\n凶 1\n大凶 1",
+            "ござ吉 1\n大吉 5\n中吉 4\n小吉 3\n吉 3\n末吉 2\n凶 1\n大凶 1",
             ephemeral=True
         )
 
@@ -116,7 +125,11 @@ class OmikujiControlView(discord.ui.View):
 
         await interaction.followup.send("✅ カスタム確率を保存しました。", ephemeral=True)
 
-    @discord.ui.button(label="確率を確認", style=discord.ButtonStyle.green)
+    @discord.ui.button(
+        label="確率を確認",
+        style=discord.ButtonStyle.green,
+        custom_id="omikuji:check_prob"  # ★必須
+    )
     async def check_prob(self, interaction: discord.Interaction, button: discord.ui.Button):
         control = load_control()
         prob = control["probability"]
@@ -155,5 +168,5 @@ class OmikujiControlCog(commands.Cog):
 
 
 async def setup(bot):
-    bot.add_view(OmikujiControlView())
+    bot.add_view(OmikujiControlView())  # ★ 永続View登録
     await bot.add_cog(OmikujiControlCog(bot))
