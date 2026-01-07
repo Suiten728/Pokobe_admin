@@ -31,7 +31,6 @@ class TikTokNotifyCog(commands.Cog):
         os.makedirs("data", exist_ok=True)
 
     async def cog_load(self):
-        print("✅ TikTokNotifyCog loaded")
         self.check_tiktok.start()
 
     # ------------------

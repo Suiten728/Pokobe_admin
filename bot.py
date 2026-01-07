@@ -13,7 +13,6 @@ if TOKEN is None:
 # Intents
 intents = discord.Intents.all()
 
-# Bot本体クラス
 class MyBot(commands.Bot):
     def __init__(self):
         super().__init__(
@@ -23,6 +22,8 @@ class MyBot(commands.Bot):
         )
 
     async def setup_hook(self):
+        failed_cogs = []
+
         # --- Cogをまとめてロード ---
         for folder in ("./cogs", "./SSP"):
             for root, _, files in os.walk(folder):
@@ -30,15 +31,26 @@ class MyBot(commands.Bot):
                     if filename.endswith(".py") and filename != "__init__.py":
                         rel_path = os.path.relpath(os.path.join(root, filename), ".")
                         cog_name = rel_path.replace(os.sep, ".")[:-3]
+
                         try:
                             await self.load_extension(cog_name)
-                            print(f"✅ Fileロード成功: {cog_name}")
                         except Exception as e:
-                            print(f"❌ Fileロード失敗: {cog_name}\n{e}")
+                            failed_cogs.append((cog_name, e))
 
-        # --- スラッシュコマンド同期はここで1回だけ ---
+        # --- ロード結果表示 ---
+        if failed_cogs:
+            print(f"✅ 以下のFile以外ロードに成功しました - {self.user}")
+            for cog_name, error in failed_cogs:
+                print(
+                    f"❌ ロード失敗 : {cog_name} - {self.user}\n"
+                    f"{error}\n"
+                )
+        else:
+            print(f"✅ すべてのFileのロードに成功しました - {self.user}")
+
+        # --- スラッシュコマンド同期 ---
         synced = await self.tree.sync()
-        print(f"✅ スラッシュコマンド登録数: {len(synced)}")
+        print(f"✅ スラッシュコマンド登録数: {len(synced)} - {self.user}")
 
     async def on_ready(self):
         print(f"✅ ログイン完了: {self.user}")
@@ -52,4 +64,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("🛑 Botを手動で停止しました。")
+        print("🛑 Botを手動で停止しました。")	

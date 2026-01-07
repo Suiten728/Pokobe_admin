@@ -7,7 +7,7 @@ from datetime import datetime
 DATA_FILE = "data/omikuji.json"
 CONTROL_FILE = "data/omikuji_control.json"
 
-RESULTS = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶"]
+RESULTS = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶", "大厄日"]
 MAX_PRESETS = 5
 
 # =====================

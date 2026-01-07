@@ -4,8 +4,10 @@ import random
 import json
 import os
 from datetime import datetime, timedelta
+import sqlite3
 
 DATA_FILE = "data/omikuji.json"
+STATS_DB_PATH = "data/omikuji/omikuji_stats.db"  # ★統計用DB
 CONTROL_FILE = "data/omikuji_control.json"  # ★テスターモード管理用
 
 def load_data():
@@ -60,7 +62,7 @@ class OmikujiCog(commands.Cog):
         self.bot = bot
 
         # おみくじ結果
-        self.results = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶"]
+        self.results = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶", "大厄日"]
 
         # 結果ごとのコメント
         self.iroha_messages = {
@@ -104,9 +106,20 @@ class OmikujiCog(commands.Cog):
                 "ぬわーっ！まさかの大凶でござるか…！でも、気を落とさないで！！",
                 "大凶はむしろ珍しいでござる！ここから運気が上がる一方と考えれば、逆に縁起が良いかもでござるよ！",
                 "今日は慎重にいくでござる！でも、ござるが傍についているから、きっと大丈夫でござる！"
+            ],
+            "大厄日": [
+                "ううっ、今日は大厄日でござるか……！無理せず、慎重にいくでござるよ……！",
+                "大厄日は特別でござる……！焦らず、ゆっくりと過ごすでござる！",
+                "今日は何が起こるかわからないでござる……！でも、ござるがついているから、きっと乗り越えられるでござるよ！"
             ]
         }
 
+    def save_stats(self, result):
+        with sqlite3.connect(STATS_DB_PATH) as conn:
+            conn.execute("INSERT INTO stats (result) VALUES (?)", 
+                         (result,)
+                         )
+            
     @commands.hybrid_command(name="おみくじ", description="風真いろはのコメント付きおみくじ！")
     async def omikuji(self, ctx):
         user_id = str(ctx.author.id)
@@ -139,6 +152,7 @@ class OmikujiCog(commands.Cog):
         save_data(data)
 
         result = get_omikuji_result(self.results)
+        self.save_stats(result)
         iroha_msg = random.choice(self.iroha_messages[result])
         color = discord.Color.random()
 
@@ -154,7 +168,7 @@ class OmikujiCog(commands.Cog):
 
         # フッター（連続参拝日数入り）
         embed.set_footer(
-            text=f"また明日もお参りください！│連続参拝 : {streak}日\n©2025 かざま隊の集いの場"
+            text=f"また明日もお参りください！│連続参拝 : {streak}日\n©2026 かざま隊の集いの場"
         )
 
         # 空の状態で送信
@@ -169,7 +183,7 @@ class OmikujiCog(commands.Cog):
             "目を閉じて良いものが出てくるよう祈りながらおみくじを選んだ。\n",
             "選んだおみくじを開く...\n",
             f"そこには **{result}** と書かれていた。\n",
-            f"**風真いろはからのメッセージ**：\n{iroha_msg}"
+            f"**風真いろはからのメッセージ**：\n\n{iroha_msg}"
         ]
 
         current_desc = ""
