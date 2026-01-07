@@ -4,9 +4,19 @@ from discord import app_commands
 import sqlite3
 import os
 import matplotlib.pyplot as plt
+from matplotlib import font_manager, rcParams
 
 DB_PATH = "data/omikuji/omikuji_stats.db"
 IMG_PATH = "data/omikuji/images/omikuji_stats.png"
+
+# ============
+# 日本語フォント設定
+# ============
+font_path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+font_prop = font_manager.FontProperties(fname=font_path)
+
+rcParams["font.family"] = font_prop.get_name()
+rcParams["axes.unicode_minus"] = False
 
 # ============
 # DB初期化
@@ -36,20 +46,33 @@ def fetch_stats():
         """)
         return cur.fetchall()
 
+# ---RESULTS---
+RISULTS = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶", "大厄日"]
+# ---結果を0で初期化---
+counts = {r: 0 for r in RISULTS}
+# ---実際のデータを反映---
+for result, count in fetch_stats():
+    if result in counts:
+        counts[result] = count
+
 # ============
 # グラフ生成
 # ============
 def generate_graph(data):
-    labels = [row[0] for row in data]
-    counts = [row[1] for row in data]
+    labels = list(counts.keys())
+    counts = list(counts.values())
 
-    plt.figure(figsize=(8, 5))
+    plt.figure(figsize=(10, 5))
     plt.bar(labels, counts)
     plt.title("おみくじ結果 統計")
     plt.xlabel("結果")
     plt.ylabel("回数")
-    plt.tight_layout()
 
+    # Y軸を1刻みに設定
+    max_count = max(counts)
+    plt.yticks(range(0, max_count + 1, 1))
+
+    plt.tight_layout()
     plt.savefig(IMG_PATH)
     plt.close()
 
@@ -62,7 +85,7 @@ class OmikujiStatsCog(commands.Cog):
         init_db()
 
     @commands.hybrid_command(
-        name="omikuji_stats",
+        name="おみくじ統計",
         description="おみくじの統計をグラフで表示します"
     )
     async def omikuji_stats(self, ctx: commands.Context):

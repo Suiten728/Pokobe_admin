@@ -6,9 +6,9 @@ import os
 from datetime import datetime, timedelta
 import sqlite3
 
-DATA_FILE = "data/omikuji.json"
+DATA_FILE = "data/omikuji/omikuji.json"
 STATS_DB_PATH = "data/omikuji/omikuji_stats.db"  # ★統計用DB
-CONTROL_FILE = "data/omikuji_control.json"  # ★テスターモード管理用
+CONTROL_FILE = "data/omikuji/omikuji_control.json"  # ★テスターモード管理用
 
 def load_data():
     if not os.path.exists(DATA_FILE):
@@ -183,7 +183,7 @@ class OmikujiCog(commands.Cog):
             "目を閉じて良いものが出てくるよう祈りながらおみくじを選んだ。\n",
             "選んだおみくじを開く...\n",
             f"そこには **{result}** と書かれていた。\n",
-            f"**風真いろはからのメッセージ**：\n\n{iroha_msg}"
+            f"**風真いろはからのメッセージ**：\n{iroha_msg}"
         ]
 
         current_desc = ""
