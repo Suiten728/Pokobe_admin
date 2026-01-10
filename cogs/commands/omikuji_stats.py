@@ -1,28 +1,43 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import sqlite3
 import os
 import matplotlib.pyplot as plt
 from matplotlib import font_manager, rcParams
 
+# =====================
+# パス設定
+# =====================
 DB_PATH = "data/omikuji/omikuji_stats.db"
 IMG_PATH = "data/omikuji/images/omikuji_stats.png"
 
-# ============
-# 日本語フォント設定
-# ============
-font_path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
-font_prop = font_manager.FontProperties(fname=font_path)
+# =====================
+# 日本語フォント（存在チェック付き）
+# =====================
+FONT_CANDIDATES = [
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/ipafont-gothic/ipag.ttf",
+]
 
-rcParams["font.family"] = font_prop.get_name()
+for path in FONT_CANDIDATES:
+    if os.path.exists(path):
+        font_prop = font_manager.FontProperties(fname=path)
+        rcParams["font.family"] = font_prop.get_name()
+        break
+
 rcParams["axes.unicode_minus"] = False
 
-# ============
+# =====================
+# 結果一覧
+# =====================
+RESULTS = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶", "大厄日"]
+
+# =====================
 # DB初期化
-# ============
+# =====================
 def init_db():
-    os.makedirs("data", exist_ok=True)
+    os.makedirs("data/omikuji/images", exist_ok=True)
+
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
         CREATE TABLE IF NOT EXISTS stats (
@@ -32,9 +47,9 @@ def init_db():
         )
         """)
 
-# ============
+# =====================
 # データ取得
-# ============
+# =====================
 def fetch_stats():
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
@@ -42,34 +57,33 @@ def fetch_stats():
         SELECT result, COUNT(*) 
         FROM stats 
         GROUP BY result
-        ORDER BY COUNT(*) DESC
         """)
         return cur.fetchall()
 
-# ---RESULTS---
-RISULTS = ["ござ吉", "大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶", "大厄日"]
-# ---結果を0で初期化---
-counts = {r: 0 for r in RISULTS}
-# ---実際のデータを反映---
-for result, count in fetch_stats():
-    if result in counts:
-        counts[result] = count
-
-# ============
+# =====================
 # グラフ生成
-# ============
-def generate_graph(data):
+# =====================
+def generate_graph():
+    rows = fetch_stats()
+
+    # 全結果を0で初期化
+    counts = {r: 0 for r in RESULTS}
+
+    # DBの値を反映
+    for result, count in rows:
+        if result in counts:
+            counts[result] = count
+
     labels = list(counts.keys())
-    counts = list(counts.values())
+    values = list(counts.values())
 
     plt.figure(figsize=(10, 5))
-    plt.bar(labels, counts)
+    plt.bar(labels, values)
     plt.title("おみくじ結果 統計")
     plt.xlabel("結果")
     plt.ylabel("回数")
 
-    # Y軸を1刻みに設定
-    max_count = max(counts)
+    max_count = max(values) if values else 0
     plt.yticks(range(0, max_count + 1, 1))
 
     plt.tight_layout()
@@ -77,7 +91,7 @@ def generate_graph(data):
     plt.close()
 
 # =====================
-# Cog 本体
+# Cog
 # =====================
 class OmikujiStatsCog(commands.Cog):
     def __init__(self, bot):
@@ -89,12 +103,12 @@ class OmikujiStatsCog(commands.Cog):
         description="おみくじの統計をグラフで表示します"
     )
     async def omikuji_stats(self, ctx: commands.Context):
-        data = fetch_stats()
+        rows = fetch_stats()
 
-        if not data:
+        if not rows:
             return await ctx.reply("📊 まだ統計データがありません。")
 
-        generate_graph(data)
+        generate_graph()
 
         file = discord.File(IMG_PATH, filename="omikuji_stats.png")
         embed = discord.Embed(

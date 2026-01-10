@@ -193,6 +193,9 @@ class OmikujiCog(commands.Cog):
             current_desc += line + "\n"
             embed.description = current_desc
             await msg.edit(content=ctx.author.mention, embed=embed)
+            # ★ 結果が表示された瞬間にリアクション
+            if f"**{result}**" in line and result in ["ござ吉", "大吉"]:
+                await msg.add_reaction("🎉")
             await discord.utils.sleep_until(datetime.now() + timedelta(seconds=1.5))
 
 

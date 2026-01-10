@@ -22,7 +22,7 @@ class Ping(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(name="ping", description="Botの応答速度を測定します")
+    @commands.command(name="ping", description="Botの応答速度を測定します")
     async def ping(self, ctx: commands.Context):
         latency_ms = round(self.bot.latency * 1000)
         status, color, advice = get_latency_status(latency_ms)

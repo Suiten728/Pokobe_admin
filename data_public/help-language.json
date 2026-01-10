@@ -1,0 +1,243 @@
+{
+  "ja": {
+    "title": "📖 ヘルプメニュー",
+    "description": "このBotで利用可能なコマンド一覧です。",
+    "fields": [
+      {
+        "name": "/ヘルプ",
+        "value": "このヘルプメニューを表示します。"
+      },
+      {
+        "name": "/おみくじ",
+        "value": "風真いろはのコメント付きおみくじを引きます。"
+      },
+      {
+        "name": "/おみくじ統計",
+        "value": "これまでに引いたおみくじの結果をグラフで表示します。"
+      },
+      {
+        "name": "/rank",
+        "value": "自分または他のユーザーのランクを表示します。"
+      },
+      {
+        "name": "P!ping",
+        "value": "Botの応答速度を測定します。"
+      }
+    ]
+  },
+
+  "en": {
+    "title": "📖 Help Menu",
+    "description": "List of available commands for this bot.",
+    "fields": [
+      {
+        "name": "/help",
+        "value": "Displays this help menu."
+      },
+      {
+        "name": "/omikuji",
+        "value": "Draw a fortune with comments from Kazama Iroha."
+      },
+      {
+        "name": "/omikuji stats",
+        "value": "Displays past omikuji results in a graph."
+      },
+      {
+        "name": "/rank",
+        "value": "Displays your rank or another user's rank."
+      },
+      {
+        "name": "P!ping",
+        "value": "Measures the bot's response time."
+      }
+    ]
+  },
+
+  "zh": {
+    "title": "📖 帮助菜单",
+    "description": "此机器人可用命令列表。",
+    "fields": [
+      {
+        "name": "/帮助",
+        "value": "显示此帮助菜单。"
+      },
+      {
+        "name": "/御神签",
+        "value": "抽取带有风真伊吕波评论的今日运势。"
+      },
+      {
+        "name": "/御神签统计",
+        "value": "以图表形式显示过去的御神签结果。"
+      },
+      {
+        "name": "/rank",
+        "value": "显示你或其他用户的等级。"
+      },
+      {
+        "name": "P!ping",
+        "value": "测量机器人的响应速度。"
+      }
+    ]
+  },
+
+  "ko": {
+    "title": "📖 도움말",
+    "description": "이 봇에서 사용 가능한 명령어 목록입니다。",
+    "fields": [
+      {
+        "name": "/도움말",
+        "value": "이 도움말 메뉴를 표시합니다."
+      },
+      {
+        "name": "/오미쿠지",
+        "value": "카자마 이로하의 코멘트와 함께 오늘의 운세를 확인합니다."
+      },
+      {
+        "name": "/오미쿠지 통계",
+        "value": "지금까지의 오미쿠지 결과를 그래프로 표시합니다."
+      },
+      {
+        "name": "/rank",
+        "value": "자신 또는 다른 사용자의 랭크를 표시합니다."
+      },
+      {
+        "name": "P!ping",
+        "value": "봇의 응답 속도를 측정합니다."
+      }
+    ]
+  },
+
+  "fr": {
+    "title": "📖 Menu d’aide",
+    "description": "Liste des commandes disponibles pour ce bot.",
+    "fields": [
+      {
+        "name": "/aide",
+        "value": "Affiche ce menu d’aide."
+      },
+      {
+        "name": "/omikuji",
+        "value": "Tirez votre fortune avec un commentaire de Kazama Iroha."
+      },
+      {
+        "name": "/statistiques omikuji",
+        "value": "Affiche les résultats passés sous forme de graphique."
+      },
+      {
+        "name": "/rank",
+        "value": "Affiche votre rang ou celui d’un autre utilisateur."
+      },
+      {
+        "name": "P!ping",
+        "value": "Mesure le temps de réponse du bot."
+      }
+    ]
+  },
+
+  "de": {
+    "title": "📖 Hilfe",
+    "description": "Liste der verfügbaren Befehle dieses Bots.",
+    "fields": [
+      {
+        "name": "/hilfe",
+        "value": "Zeigt dieses Hilfemenü an."
+      },
+      {
+        "name": "/omikuji",
+        "value": "Ziehe dein Tagesglück mit einem Kommentar von Kazama Iroha."
+      },
+      {
+        "name": "/omikuji statistik",
+        "value": "Zeigt frühere Omikuji-Ergebnisse als Diagramm an."
+      },
+      {
+        "name": "/rank",
+        "value": "Zeigt deinen Rang oder den eines anderen Nutzers an."
+      },
+      {
+        "name": "P!ping",
+        "value": "Misst die Reaktionszeit des Bots."
+      }
+    ]
+  },
+  "id": {
+    "title": "📖 Menu Bantuan",
+    "description": "Daftar perintah yang tersedia pada bot ini.",
+    "fields": [
+      {
+        "name": "/bantuan",
+        "value": "Menampilkan menu bantuan ini."
+      },
+      {
+        "name": "/omikuji",
+        "value": "Ambil ramalan hari ini dengan komentar dari Kazama Iroha."
+      },
+      {
+        "name": "/statistik omikuji",
+        "value": "Menampilkan hasil omikuji sebelumnya dalam bentuk grafik."
+      },
+      {
+        "name": "/rank",
+        "value": "Menampilkan peringkat Anda atau pengguna lain."
+      },
+      {
+        "name": "P!ping",
+        "value": "Mengukur waktu respons bot."
+      }
+    ]
+  },
+
+  "es": {
+    "title": "📖 Menú de Ayuda",
+    "description": "Lista de comandos disponibles para este bot.",
+    "fields": [
+      {
+        "name": "/ayuda",
+        "value": "Muestra este menú de ayuda."
+      },
+      {
+        "name": "/omikuji",
+        "value": "Saca tu fortuna del día con comentarios de Kazama Iroha."
+      },
+      {
+        "name": "/estadísticas omikuji",
+        "value": "Muestra los resultados anteriores de omikuji en un gráfico."
+      },
+      {
+        "name": "/rank",
+        "value": "Muestra tu rango o el de otro usuario."
+      },
+      {
+        "name": "P!ping",
+        "value": "Mide el tiempo de respuesta del bot."
+      }
+    ]
+  },
+
+  "pt_BR": {
+    "title": "📖 Menu de Ajuda",
+    "description": "Lista de comandos disponíveis para este bot.",
+    "fields": [
+      {
+        "name": "/ajuda",
+        "value": "Mostra este menu de ajuda."
+      },
+      {
+        "name": "/omikuji",
+        "value": "Tire sua sorte do dia com comentários da Kazama Iroha."
+      },
+      {
+        "name": "/estatísticas omikuji",
+        "value": "Exibe os resultados anteriores do omikuji em forma de gráfico."
+      },
+      {
+        "name": "/rank",
+        "value": "Mostra seu ranking ou o de outro usuário."
+      },
+      {
+        "name": "P!ping",
+        "value": "Mede o tempo de resposta do bot."
+      }
+    ]
+  }
+}
