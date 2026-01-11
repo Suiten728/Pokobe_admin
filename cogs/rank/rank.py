@@ -14,11 +14,11 @@ from dotenv import load_dotenv
 
 load_dotenv("ci/.env")
 
-LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID"))
-OWNER_ID = int(os.getenv("OWNER_ID"))
+LOG_CHANNEL_ID = int(os.getenv("RANK_LOG_CHANNEL_ID"))
+OWNER_ID = int(os.getenv("SERVER_OWNER_ID"))
 RANK_NOTIFICATION_CHANNEL_ID = int(os.getenv("RANK_NOTIFICATION_CHANNEL_ID"))
 
-DATA_PATH = "data/rank_data.json"
+DATA_PATH = "data/rank/rank_data.json"
 BG_IMAGE_PATH = "assets/rank_bg.png"
 
 # ========================================
