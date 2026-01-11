@@ -20,9 +20,9 @@ load_dotenv("ci/.env")
 DB_PATH = "data/rank/rank.db"
 
 RANK_BG_PATH = "assets/rankbg/rank_bg.png"
-FONT_BOLD = "assets/font/NotoSansJP-Bold.otf"
-FONT_MED = "assets/font/NotoSansJP-Medium.otf"
-FONT_REG = "assets/font/NotoSansJP-Regular.otf"
+FONT_BOLD = "assets/font/NotoSansJP-Bold.ttf"
+FONT_MED = "assets/font/NotoSansJP-Medium.ttf"
+FONT_REG = "assets/font/NotoSansJP-Regular.ttf"
 
 # =====================
 # DB INIT
