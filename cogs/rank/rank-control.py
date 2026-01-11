@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord.ui import View, Button, Modal, TextInput
 import sqlite3
 
-DB = "rank.db"
+DB = "data/rank/rank.db"
 
 # =====================
 # DB INIT
