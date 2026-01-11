@@ -146,23 +146,24 @@ class Rank(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         init_db()
+        self.bot.tree.add_command(self.rank_group)
 
     # =====================
     # /rank GROUP
     # =====================
-    rank = app_commands.Group(name="rank", description="ランク関連コマンド")
+    rank_group = app_commands.Group(
+        name="rank",
+        description="ランク関連コマンド"
+    )
 
-    # ---------------------
-    # /rank show
-    # ---------------------
-    @rank.command(name="show", description="自分または指定ユーザーのランクを表示")
-    async def rank_show(
+    # =====================
+    # 共通処理
+    # =====================
+    async def _send_rank(
         self,
         interaction: discord.Interaction,
-        user: discord.Member | None = None
+        user: discord.Member
     ):
-        user = user or interaction.user
-
         guild_members = [
             m for m in interaction.guild.members
             if not m.bot
@@ -185,10 +186,11 @@ class Rank(commands.Cog):
             )
             ranked = [r[0] for r in cur.fetchall()]
 
-            if exp > 0 and user.id in ranked:
-                server_rank = ranked.index(user.id) + 1
-            else:
-                server_rank = total_members
+            server_rank = (
+                ranked.index(user.id) + 1
+                if exp > 0 and user.id in ranked
+                else total_members
+            )
 
             # WEEKLY
             cur.execute(
@@ -196,10 +198,11 @@ class Rank(commands.Cog):
             )
             wranked = [r[0] for r in cur.fetchall()]
 
-            if user.id in wranked:
-                weekly_rank = wranked.index(user.id) + 1
-            else:
-                weekly_rank = total_members
+            weekly_rank = (
+                wranked.index(user.id) + 1
+                if user.id in wranked
+                else total_members
+            )
 
             cur.execute(
                 "SELECT exp FROM weekly_exp WHERE user_id=?",
@@ -224,10 +227,47 @@ class Rank(commands.Cog):
             file=discord.File(card)
         )
 
-    # ---------------------
+    # =====================
+    # /rank  （= show）
+    # =====================
+    @app_commands.command(
+        name="rank",
+        description="自分または指定ユーザーのランクを表示"
+    )
+    async def rank_root(
+        self,
+        interaction: discord.Interaction,
+        user: discord.Member | None = None
+    ):
+        await self._send_rank(
+            interaction,
+            user or interaction.user
+        )
+
+    # =====================
+    # /rank show
+    # =====================
+    @rank_group.command(
+        name="show",
+        description="自分または指定ユーザーのランクを表示"
+    )
+    async def rank_show(
+        self,
+        interaction: discord.Interaction,
+        user: discord.Member | None = None
+    ):
+        await self._send_rank(
+            interaction,
+            user or interaction.user
+        )
+
+    # =====================
     # /rank leaderboard
-    # ---------------------
-    @rank.command(name="leaderboard", description="ランキングを表示")
+    # =====================
+    @rank_group.command(
+        name="leaderboard",
+        description="ランキングを表示"
+    )
     @app_commands.choices(
         type=[
             app_commands.Choice(name="Normal", value="normal"),
@@ -272,10 +312,10 @@ class Rank(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
-    # ---------------------
+    # =====================
     # /rank notify
-    # ---------------------
-    @rank.command(
+    # =====================
+    @rank_group.command(
         name="notify",
         description="ランクアップ通知のメンション切替"
     )
@@ -302,5 +342,8 @@ class Rank(commands.Cog):
             ephemeral=True
         )
 
+# =====================
+# SETUP
+# =====================
 async def setup(bot: commands.Bot):
     await bot.add_cog(Rank(bot))
