@@ -1,7 +1,7 @@
 # ============================================
 # rank.py
 # Rank System Core
-# Spec v1.14.0 FULL COMPLIANCE
+# Spec v1.14.0 COMPLIANT
 # ============================================
 
 import discord
@@ -17,32 +17,12 @@ from PIL import Image, ImageDraw, ImageFont
 # =====================
 load_dotenv("ci/.env")
 
-LOG_CHANNEL_ID = int(os.getenv("RANK_LOG_CHANNEL_ID"))
-OWNER_ID = int(os.getenv("SERVER_OWNER_ID"))
-RANK_NOTIFICATION_CHANNEL_ID = int(os.getenv("RANK_NOTIFICATION_CHANNEL_ID"))
-
 DB_PATH = "data/rank/rank.db"
+
 RANK_BG_PATH = "assets/rankbg/rank_bg.png"
 FONT_BOLD = "assets/font/NotoSansJP-Bold.otf"
 FONT_MED = "assets/font/NotoSansJP-Medium.otf"
 FONT_REG = "assets/font/NotoSansJP-Regular.otf"
-
-# =====================
-# RANK ROLE TABLE
-# =====================
-RANK_ROLES = {
-    1: "🔰｜見習い訓練兵",
-    5: "🌸｜慣れてきた隊士",
-    10: "🌱｜馴染んできた隊士",
-    20: "🛡｜一人前の隊士",
-    30: "⚔｜リラックスした隊士",
-    40: "🏅｜すべてを熟知している隊士",
-    50: "👑｜凄腕のベテラン隊士",
-    75: "🌟｜戦場を生き抜いた隊士",
-    100: "👑｜熟練した隊長",
-}
-
-LOG_LEVELS = set(RANK_ROLES.keys())
 
 # =====================
 # DB INIT
@@ -50,6 +30,7 @@ LOG_LEVELS = set(RANK_ROLES.keys())
 def init_db():
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
+
         cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -58,6 +39,7 @@ def init_db():
             mention INTEGER DEFAULT 1
         )
         """)
+
         cur.execute("""
         CREATE TABLE IF NOT EXISTS weekly_exp (
             user_id INTEGER PRIMARY KEY,
@@ -71,9 +53,9 @@ def init_db():
 def total_exp_for_level(level: int) -> int:
     return 20 * level * (level + 1)
 
-def calc_level(total_exp: int) -> int:
+def calc_level(exp: int) -> int:
     level = 0
-    while total_exp >= total_exp_for_level(level + 1):
+    while exp >= total_exp_for_level(level + 1):
         level += 1
     return level
 
@@ -123,6 +105,7 @@ def generate_rank_card(
     # PROGRESS BAR
     bar_x, bar_y = 180, 225
     bar_w, bar_h = 720, 18
+
     ratio = min(exp / next_exp, 1) if next_exp > 0 else 0
     fill_w = int(bar_w * ratio)
 
@@ -135,9 +118,9 @@ def generate_rank_card(
         fill=(30, 233, 182)
     )
 
-    out = f"/tmp/rank_{username}.png"
-    img.save(out)
-    return out
+    out_path = f"/tmp/rank_{username}.png"
+    img.save(out_path)
+    return out_path
 
 # =====================
 # COG
@@ -150,34 +133,32 @@ class Rank(commands.Cog):
     # =====================
     # /rank GROUP
     # =====================
-    rank_group = app_commands.Group(
+    rank = app_commands.Group(
         name="rank",
         description="ランク関連コマンド"
     )
 
     # =====================
-    # 共通処理
+    # INTERNAL
     # =====================
     async def _send_rank(
         self,
         interaction: discord.Interaction,
         user: discord.Member
     ):
-        guild_members = [
-            m for m in interaction.guild.members
-            if not m.bot
-        ]
-        total_members = len(guild_members)
+        members = [m for m in interaction.guild.members if not m.bot]
+        total_members = len(members)
 
         with sqlite3.connect(DB_PATH) as con:
             cur = con.cursor()
 
             cur.execute(
-                "SELECT exp, level FROM users WHERE user_id=?",
+                "SELECT exp FROM users WHERE user_id=?",
                 (user.id,)
             )
             row = cur.fetchone()
-            exp, level = row if row else (0, 0)
+            exp = row[0] if row else 0
+            level = calc_level(exp)
 
             # SERVER RANK
             cur.execute(
@@ -222,14 +203,14 @@ class Rank(commands.Cog):
             weekly_exp
         )
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             file=discord.File(card)
         )
 
     # =====================
     # /rank show
     # =====================
-    @rank_group.command(
+    @rank.command(
         name="show",
         description="自分または指定ユーザーのランクを表示"
     )
@@ -238,6 +219,7 @@ class Rank(commands.Cog):
         interaction: discord.Interaction,
         user: discord.Member | None = None
     ):
+        await interaction.response.defer()
         await self._send_rank(
             interaction,
             user or interaction.user
@@ -246,7 +228,7 @@ class Rank(commands.Cog):
     # =====================
     # /rank leaderboard
     # =====================
-    @rank_group.command(
+    @rank.command(
         name="leaderboard",
         description="ランキングを表示"
     )
@@ -263,6 +245,7 @@ class Rank(commands.Cog):
     ):
         with sqlite3.connect(DB_PATH) as con:
             cur = con.cursor()
+
             if type.value == "weekly":
                 cur.execute(
                     "SELECT user_id, exp FROM weekly_exp WHERE exp>0 ORDER BY exp DESC LIMIT 10"
@@ -271,6 +254,7 @@ class Rank(commands.Cog):
                 cur.execute(
                     "SELECT user_id, exp FROM users WHERE exp>0 ORDER BY exp DESC LIMIT 10"
                 )
+
             rows = cur.fetchall()
 
         embed = discord.Embed(
@@ -297,9 +281,9 @@ class Rank(commands.Cog):
     # =====================
     # /rank notify
     # =====================
-    @rank_group.command(
+    @rank.command(
         name="notify",
-        description="ランクアップ通知のメンション切替"
+        description="ランク通知のメンション切替"
     )
     @app_commands.choices(
         mode=[
@@ -313,12 +297,17 @@ class Rank(commands.Cog):
         mode: app_commands.Choice[str]
     ):
         val = 1 if mode.value == "on" else 0
+
         with sqlite3.connect(DB_PATH) as con:
             con.execute(
-                "INSERT INTO users(user_id, mention) VALUES(?,?) "
-                "ON CONFLICT(user_id) DO UPDATE SET mention=?",
+                """
+                INSERT INTO users(user_id, mention)
+                VALUES(?,?)
+                ON CONFLICT(user_id) DO UPDATE SET mention=?
+                """,
                 (interaction.user.id, val, val)
             )
+
         await interaction.response.send_message(
             "✅ 設定を更新しました",
             ephemeral=True
@@ -329,5 +318,3 @@ class Rank(commands.Cog):
 # =====================
 async def setup(bot: commands.Bot):
     await bot.add_cog(Rank(bot))
-
-
