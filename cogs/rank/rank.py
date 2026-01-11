@@ -1,6 +1,6 @@
 # ============================================
 # rank.py
-# Rank System Core (Clean Final Version)
+# Rank System Core (No requests / Clean)
 # ============================================
 
 import discord
@@ -9,23 +9,21 @@ from discord import app_commands
 import sqlite3
 import os
 import io
-import requests
+import aiohttp
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 
 # =====================
-# ENV & PATH
+# ENV
 # =====================
 load_dotenv("ci/.env")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = "data/rank/rank.db"
+RANK_BG_PATH = "assets/rankbg/rank_bg.png"
 
-DB_PATH = os.path.join(BASE_DIR, "../../data/rank/rank.db")
-RANK_BG_PATH = os.path.join(BASE_DIR, "../../assets/rankbg/rank_bg.png")
-
-FONT_BOLD = os.path.join(BASE_DIR, "../../assets/font/NotoSansJP-Bold.ttf")
-FONT_MED  = os.path.join(BASE_DIR, "../../assets/font/NotoSansJP-Medium.ttf")
-FONT_REG  = os.path.join(BASE_DIR, "../../assets/font/NotoSansJP-Regular.ttf")
+FONT_BOLD = "assets/font/NotoSansJP-Bold.ttf"
+FONT_MED  = "assets/font/NotoSansJP-Medium.ttf"
+FONT_REG  = "assets/font/NotoSansJP-Regular.ttf"
 
 # =====================
 # DB INIT
@@ -63,9 +61,10 @@ def calc_level(exp: int) -> int:
 # =====================
 # IMAGE UTILS
 # =====================
-def load_icon(url: str, size: int) -> Image.Image:
-    res = requests.get(url)
-    img = Image.open(io.BytesIO(res.content)).convert("RGBA")
+async def load_icon(session: aiohttp.ClientSession, url: str, size: int) -> Image.Image:
+    async with session.get(url) as resp:
+        data = await resp.read()
+    img = Image.open(io.BytesIO(data)).convert("RGBA")
     return img.resize((size, size))
 
 def circle_crop(img: Image.Image, size: int) -> Image.Image:
@@ -79,7 +78,7 @@ def circle_crop(img: Image.Image, size: int) -> Image.Image:
 # =====================
 # IMAGE GENERATION
 # =====================
-def generate_rank_card(
+async def generate_rank_card(
     interaction: discord.Interaction,
     user: discord.Member,
     level: int,
@@ -92,65 +91,49 @@ def generate_rank_card(
     img = Image.open(RANK_BG_PATH).convert("RGBA")
     draw = ImageDraw.Draw(img)
 
-    # Fonts
     font_big = ImageFont.truetype(FONT_BOLD, 44)
     font_mid = ImageFont.truetype(FONT_MED, 28)
     font_small = ImageFont.truetype(FONT_REG, 22)
 
-    # Icons
-    user_icon = circle_crop(
-        load_icon(user.display_avatar.url, 96), 96
-    )
-
-    guild_icon = None
-    if interaction.guild.icon:
-        guild_icon = circle_crop(
-            load_icon(interaction.guild.icon.url, 42), 42
+    async with aiohttp.ClientSession() as session:
+        user_icon = circle_crop(
+            await load_icon(session, user.display_avatar.url, 96), 96
         )
 
-    # Paste icons
+        guild_icon = None
+        if interaction.guild.icon:
+            guild_icon = circle_crop(
+                await load_icon(session, interaction.guild.icon.url, 42), 42
+            )
+
     img.paste(user_icon, (70, 55), user_icon)
     if guild_icon:
         img.paste(guild_icon, (55, 35), guild_icon)
 
-    # Username
     draw.text((190, 40), user.display_name, font=font_big, fill=(0, 0, 0))
-
-    # Level
     draw.text((980, 40), f"{level:02}", font=font_big, fill=(30, 233, 182))
 
-    # Labels
     draw.text((190, 115), "SERVER RANK", font=font_small, fill=(90, 90, 90))
     draw.text((350, 115), "WEEKLY RANK", font=font_small, fill=(90, 90, 90))
     draw.text((530, 115), "WEEKLY EXP", font=font_small, fill=(90, 90, 90))
 
-    # Values
     draw.text((190, 145), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
     draw.text((350, 145), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
     draw.text((530, 145), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
 
-    # EXP Bar
     next_exp = total_exp_for_level(level + 1)
     ratio = min(exp / next_exp, 1) if next_exp else 0
 
     bar_x, bar_y = 190, 205
     bar_w, bar_h = 720, 18
 
-    draw.rectangle(
-        (bar_x, bar_y, bar_x + bar_w, bar_y + bar_h),
-        fill=(200, 200, 200)
-    )
+    draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill=(200, 200, 200))
     draw.rectangle(
         (bar_x, bar_y, bar_x + int(bar_w * ratio), bar_y + bar_h),
         fill=(30, 233, 182)
     )
 
-    draw.text(
-        (190, 175),
-        f"EXP : {exp}/{next_exp}",
-        font=font_small,
-        fill=(0, 0, 0)
-    )
+    draw.text((190, 175), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
 
     out = f"/tmp/rank_{user.id}.png"
     img.save(out)
@@ -166,7 +149,6 @@ class Rank(commands.Cog):
 
     rank = app_commands.Group(name="rank", description="ランク関連コマンド")
 
-    # /rank show
     @rank.command(name="show", description="ランクを表示")
     async def rank_show(
         self,
@@ -198,19 +180,11 @@ class Rank(commands.Cog):
             w = cur.fetchone()
             weekly_exp = w[0] if w else 0
 
-        card = generate_rank_card(
-            interaction,
-            user,
-            level,
-            exp,
-            server_rank,
-            weekly_rank,
-            weekly_exp
+        card = await generate_rank_card(
+            interaction, user, level, exp, server_rank, weekly_rank, weekly_exp
         )
 
-        await interaction.response.send_message(
-            file=discord.File(card)
-        )
+        await interaction.response.send_message(file=discord.File(card))
 
 # =====================
 # SETUP
