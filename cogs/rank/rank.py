@@ -1,45 +1,34 @@
-# ========================================
-# rank.py - Rank System 
-# Spec v1.14.0 
-# ========================================
+# =====================================
+# rank.py
+# Rank System Core
+# Spec v1.14.0 FULL COMPLY
+# =====================================
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
-from PIL import Image, ImageDraw, ImageFont
+import sqlite3
 import os
-import json
-import math
-import io
+import time
+from dotenv import load_dotenv
+from PIL import Image, ImageDraw, ImageFont
 
-# ========================================
-# ENV SAFE LOAD
-# ========================================
+# =====================
+# ENV
+# =====================
+load_dotenv("ci/.env")
 
-def getenv_int(key: str):
-    v = os.getenv(key)
-    return int(v) if v and v.isdigit() else None
+LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID"))
+OWNER_ID = int(os.getenv("OWNER_ID"))
+RANK_NOTIFICATION_CHANNEL_ID = int(os.getenv("RANK_NOTIFICATION_CHANNEL_ID"))
 
-LOG_CHANNEL_ID = getenv_int("RANK_LOG_CHANNEL_ID")
-OWNER_ID = getenv_int("SERVER_OWNER_ID")
-RANK_NOTIFICATION_CHANNEL_ID = getenv_int("RANK_NOTIFICATION_CHANNEL_ID")
+DB = "rank.db"
+RANK_BG = "assets/rank_bg.png"
+FONT_PATH = "assets/font.ttf"
 
-# ========================================
-# PATH / SETTINGS
-# ========================================
-
-DATA_PATH = "data/rank/rank_data.json"
-FONT_PATH = "assets/font/NotoSansJP-Bold.otf"
-CARD_SIZE = (600, 180)
-
-RANK_BG_TABLE = {
-    0: "assets/rankbg/bg_0.png",
-    20: "assets/rankbg/bg_20.png",
-    40: "assets/rankbg/bg_40.png",
-    60: "assets/rankbg/bg_60.png",
-    100: "assets/rankbg/bg_100.png",
-}
-
+# =====================
+# RANK ROLE TABLE
+# =====================
 RANK_ROLES = {
     1: "🔰｜見習い訓練兵",
     5: "🌸｜慣れてきた隊士",
@@ -51,246 +40,146 @@ RANK_ROLES = {
     75: "🌟｜戦場を生き抜いた隊士",
     100: "👑｜熟練した隊長",
 }
-RANK_TRIGGER_LEVELS = sorted(RANK_ROLES.keys())
 
-# ========================================
-# DATA
-# ========================================
+# =====================
+# DB INIT
+# =====================
+def init_db():
+    with sqlite3.connect(DB) as con:
+        cur = con.cursor()
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            exp INTEGER DEFAULT 0,
+            level INTEGER DEFAULT 0,
+            mention INTEGER DEFAULT 1
+        )
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_exp (
+            user_id INTEGER PRIMARY KEY,
+            exp INTEGER DEFAULT 0
+        )
+        """)
 
-def load_data():
-    if not os.path.exists(DATA_PATH):
-        return {}
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_data(data):
-    os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
-    with open(DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-# ========================================
-# LEVEL CALC
-# ========================================
-
+# =====================
+# LEVEL FORMULA
+# =====================
 def calc_level(total_exp: int) -> int:
-    return int((math.sqrt(1 + total_exp / 10) - 1) / 2)
+    level = 0
+    while total_exp >= 20 * level * (level + 1):
+        level += 1
+    return max(level - 1, 0)
 
 def next_level_exp(level: int) -> int:
-    return 40 * (level + 1)
+    return 20 * (level + 1) * (level + 2)
 
-def select_bg(level: int) -> str:
-    bg = RANK_BG_TABLE[0]
-    for lv in sorted(RANK_BG_TABLE):
-        if level >= lv:
-            bg = RANK_BG_TABLE[lv]
-    return bg
+# =====================
+# RANK IMAGE
+# =====================
+def generate_rank_card(
+    username: str,
+    avatar_path: str,
+    level: int,
+    exp: int,
+    next_exp: int,
+    server_rank: int,
+    weekly_rank: int,
+    weekly_exp: int
+) -> str:
 
-# ========================================
-# IMAGE GENERATION
-# ========================================
+    img = Image.open(RANK_BG).convert("RGBA")
+    draw = ImageDraw.Draw(img)
 
-async def generate_rank_card(member: discord.Member, data: dict) -> discord.File:
-    uid = str(member.id)
-    exp = data.get(uid, {}).get("exp", 0)
-    level = calc_level(exp)
+    font_big = ImageFont.truetype(FONT_PATH, 48)
+    font_mid = ImageFont.truetype(FONT_PATH, 32)
+    font_small = ImageFont.truetype(FONT_PATH, 26)
 
-    base = Image.open(select_bg(level)).convert("RGBA").resize(CARD_SIZE)
-    draw = ImageDraw.Draw(base)
+    # USERNAME
+    draw.text((180, 40), username, font=font_big, fill="black")
 
-    font_big = ImageFont.truetype(FONT_PATH, 32)
-    font_mid = ImageFont.truetype(FONT_PATH, 18)
-    font_small = ImageFont.truetype(FONT_PATH, 14)
+    # LEVEL
+    draw.text((880, 40), f"{level:02}", font=font_big, fill="#1de9b6")
 
-    # avatar
-    avatar_bytes = await member.display_avatar.read()
-    avatar = Image.open(io.BytesIO(avatar_bytes)).resize((96, 96)).convert("RGBA")
-    mask = Image.new("L", (96, 96), 0)
-    ImageDraw.Draw(mask).ellipse((0, 0, 96, 96), fill=255)
-    base.paste(avatar, (20, 20), mask)
+    # SERVER RANK
+    draw.text((180, 120), f"#{server_rank:02}", font=font_mid, fill="#1de9b6")
 
-    # text
-    draw.text((140, 20), member.display_name, font=font_big, fill="black")
+    # WEEKLY RANK
+    draw.text((350, 120), f"#{weekly_rank:02}", font=font_mid, fill="#1de9b6")
 
-    draw.text((140, 65), "SERVER RANK", font=font_small, fill="black")
-    draw.text((260, 65), "#00", font=font_small, fill="#00cfa1")
+    # WEEKLY EXP
+    draw.text((540, 120), f"{weekly_exp:03}", font=font_mid, fill="#1de9b6")
 
-    draw.text((140, 90), "WEEKLY RANK", font=font_small, fill="black")
-    draw.text((260, 90), "#00", font=font_small, fill="#00cfa1")
+    # EXP TEXT
+    draw.text((180, 190), f"EXP : {exp:04}/{next_exp:04}", font=font_small, fill="black")
 
-    draw.text((140, 115), "WEEKLY EXP", font=font_small, fill="black")
-    draw.text((260, 115), "000", font=font_small, fill="#00cfa1")
+    # PROGRESS BAR
+    bar_x, bar_y = 180, 230
+    bar_w = 700
+    progress = int(bar_w * (exp / next_exp))
+    draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + 20), fill="#cccccc")
+    draw.rectangle((bar_x, bar_y, bar_x + progress, bar_y + 20), fill="#1de9b6")
 
-    draw.text((480, 25), f"LEVEL\n{level:02}", font=font_mid, fill="#00cfa1", align="center")
+    output = f"/tmp/rank_{username}.png"
+    img.save(output)
+    return output
 
-    # exp bar
-    need = next_level_exp(level)
-    cur = exp % need
-    ratio = cur / need if need else 0
-
-    bar_x, bar_y = 140, 150
-    bar_w, bar_h = 420, 12
-
-    draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill="#cccccc")
-    draw.rectangle(
-        (bar_x, bar_y, bar_x + int(bar_w * ratio), bar_y + bar_h),
-        fill="#00cfa1"
-    )
-    draw.text((140, 135), f"EXP : {cur} / {need}", font=font_small, fill="black")
-
-    buf = io.BytesIO()
-    base.save(buf, "PNG")
-    buf.seek(0)
-    return discord.File(buf, filename="rank.png")
-
-# ========================================
-# RANK COG
-# ========================================
-
+# =====================
+# COG
+# =====================
 class Rank(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.data = load_data()
+        init_db()
 
-    # ================================
-    # ROLE & NOTIFY
-    # ================================
-
-    async def apply_rank_roles(self, member: discord.Member, before_lv: int, after_lv: int):
-        for lv in RANK_TRIGGER_LEVELS:
-            if before_lv < lv <= after_lv:
-                await self._give_rank_role(member, lv)
-                await self._rankup_notify(member, lv)
-                await self._log_rank(member, lv)
-
-    async def _give_rank_role(self, member: discord.Member, level: int):
-        guild = member.guild
-        role_name = RANK_ROLES[level]
-
-        try:
-            role = discord.utils.get(guild.roles, name=role_name)
-            if role is None:
-                role = await guild.create_role(
-                    name=role_name,
-                    colour=discord.Colour.light_grey(),
-                    reason="Rank role auto create"
-                )
-
-            for r in guild.roles:
-                if r.name in RANK_ROLES.values() and r in member.roles:
-                    await member.remove_roles(r)
-
-            await member.add_roles(role, reason="Rank up")
-
-        except discord.Forbidden:
-            await self._permission_error(guild)
-
-    async def _rankup_notify(self, member: discord.Member, level: int):
-        if not RANK_NOTIFICATION_CHANNEL_ID:
-            return
-
-        ch = member.guild.get_channel(RANK_NOTIFICATION_CHANNEL_ID)
-        if not ch:
-            return
-
-        uid = str(member.id)
-        self.data.setdefault(uid, {"exp": 0, "mention": True})
-        mention = member.mention if self.data[uid].get("mention", True) else member.display_name
-
-        await ch.send(f"{mention} さんが **Lv.{level}** に到達しました！🎉")
-
-    async def _log_rank(self, member: discord.Member, level: int):
-        if not LOG_CHANNEL_ID:
-            return
-
-        ch = member.guild.get_channel(LOG_CHANNEL_ID)
-        if not ch:
-            return
-
-        embed = discord.Embed(
-            title="ランクロール変更ログ",
-            color=discord.Color.blue(),
-            timestamp=discord.utils.utcnow()
-        )
-        embed.add_field(name="ユーザー", value=member.mention)
-        embed.add_field(name="到達Lv", value=f"Lv.{level}")
-        embed.add_field(name="付与ロール", value=RANK_ROLES[level])
-        embed.add_field(name="理由", value="ランク到達による自動付与", inline=False)
-        await ch.send(embed=embed)
-
-    async def _permission_error(self, guild: discord.Guild):
-        if not LOG_CHANNEL_ID:
-            return
-
-        ch = guild.get_channel(LOG_CHANNEL_ID)
-        if not ch:
-            return
-
-        embed = discord.Embed(
-            title="⚠ 権限不足",
-            description="ランクロール操作権限がありません。",
-            color=discord.Color.red()
-        )
-
-        if OWNER_ID:
-            owner = guild.get_member(OWNER_ID)
-            if owner:
-                embed.add_field(name="通知先", value=owner.mention)
-
-        await ch.send(embed=embed)
-
-    # ================================
-    # EXP ADD (外部から呼ぶ)
-    # ================================
-
-    async def add_exp(self, member: discord.Member, amount: int):
-        uid = str(member.id)
-        self.data.setdefault(uid, {"exp": 0, "mention": True})
-
-        before_exp = self.data[uid]["exp"]
-        before_lv = calc_level(before_exp)
-
-        self.data[uid]["exp"] += amount
-        after_lv = calc_level(self.data[uid]["exp"])
-
-        save_data(self.data)
-
-        if after_lv > before_lv:
-            await self.apply_rank_roles(member, before_lv, after_lv)
-
-    # ================================
-    # GROUP COMMAND
-    # ================================
-
-    rank = app_commands.Group(
-        name="rank",
-        description="ランク関連コマンド"
-    )
-
-    @rank.command(name="show")
-    async def rank_show(self, interaction: discord.Interaction, user: discord.Member | None = None):
+    # =====================
+    # /rank
+    # =====================
+    @app_commands.command(name="rank", description="ランクを表示")
+    async def rank(self, interaction: discord.Interaction, user: discord.Member | None = None):
         user = user or interaction.user
-        file = await generate_rank_card(user, self.data)
-        await interaction.response.send_message(file=file)
 
-    @rank.command(name="mention")
-    async def rank_mention(self, interaction: discord.Interaction, enable: bool):
-        uid = str(interaction.user.id)
-        self.data.setdefault(uid, {"exp": 0, "mention": True})
-        self.data[uid]["mention"] = enable
-        save_data(self.data)
+        with sqlite3.connect(DB) as con:
+            cur = con.cursor()
+            cur.execute("SELECT exp, level FROM users WHERE user_id = ?", (user.id,))
+            row = cur.fetchone()
+            if not row:
+                exp, level = 0, 0
+            else:
+                exp, level = row
 
-        await interaction.response.send_message(
-            f"ランクアップ通知メンションを **{'ON' if enable else 'OFF'}** にしました"
+            # SERVER RANK
+            cur.execute("SELECT user_id FROM users ORDER BY exp DESC")
+            ranks = [r[0] for r in cur.fetchall()]
+            server_rank = ranks.index(user.id) + 1 if user.id in ranks else 0
+
+            # WEEKLY
+            cur.execute("SELECT user_id FROM weekly_exp ORDER BY exp DESC")
+            wranks = [r[0] for r in cur.fetchall()]
+            weekly_rank = wranks.index(user.id) + 1 if user.id in wranks else 0
+            cur.execute("SELECT exp FROM weekly_exp WHERE user_id = ?", (user.id,))
+            wexp = cur.fetchone()
+            weekly_exp = wexp[0] if wexp else 0
+
+        next_exp = next_level_exp(level)
+
+        avatar = await user.display_avatar.read()
+        avatar_path = f"/tmp/avatar_{user.id}.png"
+        with open(avatar_path, "wb") as f:
+            f.write(avatar)
+
+        card = generate_rank_card(
+            user.display_name,
+            avatar_path,
+            level,
+            exp,
+            next_exp,
+            server_rank,
+            weekly_rank,
+            weekly_exp
         )
 
-    @rank.command(name="leaderboard")
-    async def rank_leaderboard(self, interaction: discord.Interaction):
-        await interaction.response.send_message("leaderboard 実装予定")
-
-# ========================================
-# SETUP
-# ========================================
+        await interaction.response.send_message(file=discord.File(card))
 
 async def setup(bot):
     await bot.add_cog(Rank(bot))
-
