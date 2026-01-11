@@ -53,19 +53,19 @@ class RankControlView(View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @Button(label="📩 メッセージEXP", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="📩 メッセージEXP", style=discord.ButtonStyle.primary)
     async def text_exp(self, interaction: discord.Interaction, _):
         await interaction.response.send_modal(SettingModal("text_exp", "メッセージEXP設定"))
 
-    @Button(label="🎙 VC EXP", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="🎙 VC EXP", style=discord.ButtonStyle.primary)
     async def vc_exp(self, interaction: discord.Interaction, _):
         await interaction.response.send_modal(SettingModal("vc_exp_per_min", "VC EXP/分設定"))
 
-    @Button(label="⏱ クールダウン", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="⏱ クールダウン", style=discord.ButtonStyle.secondary)
     async def cooldown(self, interaction: discord.Interaction, _):
         await interaction.response.send_modal(SettingModal("cooldown_sec", "クールダウン秒数"))
 
-    @Button(label="📊 Weekly ON/OFF", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="📊 Weekly ON/OFF", style=discord.ButtonStyle.success)
     async def weekly(self, interaction: discord.Interaction, _):
         with sqlite3.connect(DB) as con:
             cur = con.cursor()
