@@ -1,65 +1,92 @@
-# ========================================
-# rank-control.py - Rank Admin Control
-# ========================================
+# =====================================
+# rank-control.py
+# Rank Control Panel
+# =====================================
 
 import discord
 from discord.ext import commands
-from discord import app_commands
-import json
-import os
+from discord.ui import View, Button, Modal, TextInput
+import sqlite3
 
-DATA_PATH = "data/rank_data.json"
+DB = "rank.db"
 
-def load_data():
-    if not os.path.exists(DATA_PATH):
-        return {}
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+# =====================
+# DB INIT
+# =====================
+def init_settings():
+    with sqlite3.connect(DB) as con:
+        cur = con.cursor()
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value INTEGER
+        )
+        """)
+        defaults = {
+            "text_exp": 5,
+            "vc_exp_per_min": 5,
+            "cooldown_sec": 60,
+            "weekly_enabled": 1
+        }
+        for k, v in defaults.items():
+            cur.execute("INSERT OR IGNORE INTO settings VALUES (?,?)", (k, v))
 
-def save_data(data):
-    with open(DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+# =====================
+# MODAL
+# =====================
+class SettingModal(Modal):
+    def __init__(self, key: str, title: str):
+        super().__init__(title=title)
+        self.key = key
+        self.value = TextInput(label="数値を入力", required=True)
+        self.add_item(self.value)
 
+    async def on_submit(self, interaction: discord.Interaction):
+        with sqlite3.connect(DB) as con:
+            con.execute("UPDATE settings SET value=? WHERE key=?", (int(self.value.value), self.key))
+        await interaction.response.send_message("✅ 更新しました", ephemeral=True)
+
+# =====================
+# VIEW
+# =====================
+class RankControlView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @Button(label="📩 メッセージEXP", style=discord.ButtonStyle.primary)
+    async def text_exp(self, interaction: discord.Interaction, _):
+        await interaction.response.send_modal(SettingModal("text_exp", "メッセージEXP設定"))
+
+    @Button(label="🎙 VC EXP", style=discord.ButtonStyle.primary)
+    async def vc_exp(self, interaction: discord.Interaction, _):
+        await interaction.response.send_modal(SettingModal("vc_exp_per_min", "VC EXP/分設定"))
+
+    @Button(label="⏱ クールダウン", style=discord.ButtonStyle.secondary)
+    async def cooldown(self, interaction: discord.Interaction, _):
+        await interaction.response.send_modal(SettingModal("cooldown_sec", "クールダウン秒数"))
+
+    @Button(label="📊 Weekly ON/OFF", style=discord.ButtonStyle.success)
+    async def weekly(self, interaction: discord.Interaction, _):
+        with sqlite3.connect(DB) as con:
+            cur = con.cursor()
+            cur.execute("SELECT value FROM settings WHERE key='weekly_enabled'")
+            val = cur.fetchone()[0]
+            new = 0 if val else 1
+            cur.execute("UPDATE settings SET value=?", (new,))
+        await interaction.response.send_message(f"Weekly: {'ON' if new else 'OFF'}", ephemeral=True)
+
+# =====================
+# COG
+# =====================
 class RankControl(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        init_settings()
 
-    # ========================================
-    # Mention Toggle
-    # ========================================
-
-    @app_commands.command(name="rank_mention", description="ランクアップ通知のメンションON/OFF")
-    async def rank_mention(self, interaction: discord.Interaction, enable: bool):
-        data = load_data()
-        uid = str(interaction.user.id)
-        data.setdefault(uid, {"exp": 0})
-        data[uid]["mention"] = enable
-        save_data(data)
-
-        await interaction.response.send_message(
-            f"ランクアップ通知メンションを **{'ON' if enable else 'OFF'}** にしました"
-        )
-
-    # ========================================
-    # EXP Control
-    # ========================================
-
-    @app_commands.command(name="rank_add_exp", description="指定ユーザーにEXPを付与")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def add_exp(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        data = load_data()
-        uid = str(user.id)
-        data.setdefault(uid, {"exp": 0})
-        data[uid]["exp"] += amount
-        save_data(data)
-
-        await interaction.response.send_message(
-            f"{user.mention} に **{amount} EXP** を付与しました"
-        )
-
-# ========================================
-# Setup
-# ========================================
+    @commands.command(name="rank-ctrl")
+    @commands.has_permissions(administrator=True)
+    async def rank_ctrl(self, ctx):
+        await ctx.send("🛠 Rank Control Panel", view=RankControlView())
 
 async def setup(bot):
     await bot.add_cog(RankControl(bot))
