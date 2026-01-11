@@ -1,15 +1,13 @@
 # ============================================
 # rank-control.py
-# EXP Control & Award Logic
+# Rank EXP Control + Admin UI (SET方式)
 # ============================================
 
 import discord
 from discord.ext import commands, tasks
+from discord.ui import View, Modal, TextInput
 import sqlite3
 import time
-from dotenv import load_dotenv
-
-load_dotenv("ci/.env")
 
 DB_PATH = "data/rank/rank.db"
 
@@ -20,7 +18,27 @@ def init_db():
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
 
-        # 設定
+        # users（rank.py より先にロードされても安全）
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            exp INTEGER DEFAULT 0,
+            level INTEGER DEFAULT 0,
+            mention INTEGER DEFAULT 1,
+            last_message_exp INTEGER DEFAULT 0,
+            last_vc_exp INTEGER DEFAULT 0
+        )
+        """)
+
+        # weekly
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_exp (
+            user_id INTEGER PRIMARY KEY,
+            exp INTEGER DEFAULT 0
+        )
+        """)
+
+        # settings
         cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -28,21 +46,12 @@ def init_db():
         )
         """)
 
-        # users拡張
-        cur.execute("""
-        ALTER TABLE users ADD COLUMN last_message_exp INTEGER DEFAULT 0
-        """)
-        cur.execute("""
-        ALTER TABLE users ADD COLUMN last_vc_exp INTEGER DEFAULT 0
-        """)
-
-        # 初期設定
         defaults = {
             "msg_exp": 5,
             "msg_cd": 60,
             "vc_exp": 10,
             "vc_interval": 300,
-            "weekly_enabled": 1,
+            "weekly_enabled": 1
         }
 
         for k, v in defaults.items():
@@ -62,7 +71,6 @@ def get_setting(key: str) -> int:
         return row[0] if row else 0
 
 def add_exp(user_id: int, amount: int, weekly: bool):
-    now = int(time.time())
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
 
@@ -86,6 +94,117 @@ def add_exp(user_id: int, amount: int, weekly: bool):
             )
 
 # =====================
+# MODAL
+# =====================
+class SettingModal(Modal):
+    def __init__(self, key: str, title: str):
+        super().__init__(title=title)
+        self.key = key
+        self.value = TextInput(label="数値を入力", required=True)
+        self.add_item(self.value)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        with sqlite3.connect(DB_PATH) as con:
+            con.execute(
+                "UPDATE settings SET value=? WHERE key=?",
+                (int(self.value.value), self.key)
+            )
+        await interaction.response.send_message("✅ 更新しました", ephemeral=True)
+
+
+class UserExpSetModal(Modal):
+    def __init__(self):
+        super().__init__(title="ユーザーEXPを直接設定")
+
+        self.user_id = TextInput(
+            label="ユーザーID",
+            placeholder="例: 123456789012345678",
+            required=True
+        )
+        self.exp = TextInput(
+            label="設定するEXP（最終値）",
+            placeholder="例: 1500",
+            required=True
+        )
+
+        self.add_item(self.user_id)
+        self.add_item(self.exp)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        uid = int(self.user_id.value)
+        new_exp = int(self.exp.value)
+
+        with sqlite3.connect(DB_PATH) as con:
+            cur = con.cursor()
+            cur.execute(
+                "INSERT OR IGNORE INTO users(user_id) VALUES(?)",
+                (uid,)
+            )
+            cur.execute(
+                "UPDATE users SET exp=? WHERE user_id=?",
+                (new_exp, uid)
+            )
+
+        await interaction.response.send_message(
+            f"✅ <@{uid}> のEXPを **{new_exp}** に設定しました",
+            ephemeral=True
+        )
+
+# =====================
+# VIEW
+# =====================
+class RankControlView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="📩 メッセージEXP", style=discord.ButtonStyle.primary)
+    async def msg_exp(self, interaction: discord.Interaction, _):
+        await interaction.response.send_modal(
+            SettingModal("msg_exp", "メッセージEXP設定")
+        )
+
+    @discord.ui.button(label="🎙 VC EXP", style=discord.ButtonStyle.primary)
+    async def vc_exp(self, interaction: discord.Interaction, _):
+        await interaction.response.send_modal(
+            SettingModal("vc_exp", "VC EXP/付与量")
+        )
+
+    @discord.ui.button(label="⏱ メッセージCD", style=discord.ButtonStyle.secondary)
+    async def cooldown(self, interaction: discord.Interaction, _):
+        await interaction.response.send_modal(
+            SettingModal("msg_cd", "メッセージクールダウン（秒）")
+        )
+
+    @discord.ui.button(label="⏱ VC付与間隔", style=discord.ButtonStyle.secondary)
+    async def vc_interval(self, interaction: discord.Interaction, _):
+        await interaction.response.send_modal(
+            SettingModal("vc_interval", "VC EXP付与間隔（秒）")
+        )
+
+    @discord.ui.button(label="🧑 ユーザーEXP設定", style=discord.ButtonStyle.danger)
+    async def user_exp_set(self, interaction: discord.Interaction, _):
+        await interaction.response.send_modal(UserExpSetModal())
+
+    @discord.ui.button(label="📊 Weekly ON/OFF", style=discord.ButtonStyle.success)
+    async def weekly(self, interaction: discord.Interaction, _):
+        with sqlite3.connect(DB_PATH) as con:
+            cur = con.cursor()
+            cur.execute(
+                "SELECT value FROM settings WHERE key='weekly_enabled'"
+            )
+            val = cur.fetchone()[0]
+            new = 0 if val else 1
+            cur.execute(
+                "UPDATE settings SET value=? WHERE key='weekly_enabled'",
+                (new,)
+            )
+
+        await interaction.response.send_message(
+            f"Weekly: {'ON' if new else 'OFF'}",
+            ephemeral=True
+        )
+
+# =====================
 # COG
 # =====================
 class RankControl(commands.Cog):
@@ -93,6 +212,14 @@ class RankControl(commands.Cog):
         self.bot = bot
         init_db()
         self.vc_loop.start()
+
+    # =====================
+    # ADMIN PANEL
+    # =====================
+    @commands.command(name="rank-ctrl")
+    @commands.has_permissions(administrator=True)
+    async def rank_ctrl(self, ctx: commands.Context):
+        await ctx.send("🛠 Rank Control Panel", view=RankControlView())
 
     # =====================
     # MESSAGE EXP
@@ -173,5 +300,8 @@ class RankControl(commands.Cog):
     async def before_vc(self):
         await self.bot.wait_until_ready()
 
+# =====================
+# SETUP
+# =====================
 async def setup(bot: commands.Bot):
     await bot.add_cog(RankControl(bot))
