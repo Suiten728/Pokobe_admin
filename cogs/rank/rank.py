@@ -146,66 +146,75 @@ class Rank(commands.Cog):
         interaction: discord.Interaction,
         user: discord.Member
     ):
-        members = [m for m in interaction.guild.members if not m.bot]
-        total_members = len(members)
+        try:
+            members = [m for m in interaction.guild.members if not m.bot]
+            total_members = len(members)
 
-        with sqlite3.connect(DB_PATH) as con:
-            cur = con.cursor()
+            with sqlite3.connect(DB_PATH) as con:
+                cur = con.cursor()
 
-            cur.execute(
-                "SELECT exp FROM users WHERE user_id=?",
-                (user.id,)
+                cur.execute(
+                    "SELECT exp FROM users WHERE user_id=?",
+                    (user.id,)
+                )
+                row = cur.fetchone()
+                exp = row[0] if row else 0
+                level = calc_level(exp)
+
+                # SERVER RANK
+                cur.execute(
+                    "SELECT user_id FROM users WHERE exp>0 ORDER BY exp DESC"
+                )
+                ranked = [r[0] for r in cur.fetchall()]
+
+                server_rank = (
+                    ranked.index(user.id) + 1
+                    if exp > 0 and user.id in ranked
+                    else total_members
+                )
+
+                # WEEKLY
+                cur.execute(
+                    "SELECT user_id FROM weekly_exp WHERE exp>0 ORDER BY exp DESC"
+                )
+                wranked = [r[0] for r in cur.fetchall()]
+
+                weekly_rank = (
+                    wranked.index(user.id) + 1
+                    if user.id in wranked
+                    else total_members
+                )
+
+                cur.execute(
+                    "SELECT exp FROM weekly_exp WHERE user_id=?",
+                    (user.id,)
+                )
+                w = cur.fetchone()
+                weekly_exp = w[0] if w else 0
+
+            next_exp = total_exp_for_level(level + 1)
+
+            card = generate_rank_card(
+                user.display_name,
+                level,
+                exp,
+                next_exp,
+                server_rank,
+                weekly_rank,
+                weekly_exp
             )
-            row = cur.fetchone()
-            exp = row[0] if row else 0
-            level = calc_level(exp)
 
-            # SERVER RANK
-            cur.execute(
-                "SELECT user_id FROM users WHERE exp>0 ORDER BY exp DESC"
-            )
-            ranked = [r[0] for r in cur.fetchall()]
-
-            server_rank = (
-                ranked.index(user.id) + 1
-                if exp > 0 and user.id in ranked
-                else total_members
+            await interaction.followup.send(
+                file=discord.File(card)
             )
 
-            # WEEKLY
-            cur.execute(
-                "SELECT user_id FROM weekly_exp WHERE exp>0 ORDER BY exp DESC"
+        except Exception as e:
+            # ★ これが超重要
+            await interaction.followup.send(
+                f"❌ ランク表示中にエラーが発生しました\n```{e}```",
+                ephemeral=True
             )
-            wranked = [r[0] for r in cur.fetchall()]
-
-            weekly_rank = (
-                wranked.index(user.id) + 1
-                if user.id in wranked
-                else total_members
-            )
-
-            cur.execute(
-                "SELECT exp FROM weekly_exp WHERE user_id=?",
-                (user.id,)
-            )
-            w = cur.fetchone()
-            weekly_exp = w[0] if w else 0
-
-        next_exp = total_exp_for_level(level + 1)
-
-        card = generate_rank_card(
-            user.display_name,
-            level,
-            exp,
-            next_exp,
-            server_rank,
-            weekly_rank,
-            weekly_exp
-        )
-
-        await interaction.followup.send(
-            file=discord.File(card)
-        )
+            raise  # ログにも出す
 
     # =====================
     # /rank show
