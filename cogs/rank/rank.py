@@ -24,7 +24,7 @@ RANK_NOTIFICATION_CHANNEL_ID = int(os.getenv("RANK_NOTIFICATION_CHANNEL_ID"))
 
 DB_PATH = "data/rank/rank.db"
 RANK_BG_PATH = "assets/rankbg/rank_bg.png"
-FONT_PATH = "assets/font/font.ttf"
+FONT_PATH = "assets/font/NotoSansJP-SemiBold.ttf"
 
 # =====================
 # RANK ROLE TABLE
@@ -263,3 +263,4 @@ class Rank(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Rank(bot))
+
