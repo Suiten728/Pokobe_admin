@@ -20,27 +20,24 @@ def getenv_int(key: str):
     v = os.getenv(key)
     return int(v) if v and v.isdigit() else None
 
-LOG_CHANNEL_ID = getenv_int("LOG_CHANNEL_ID")
-OWNER_ID = getenv_int("OWNER_ID")
+LOG_CHANNEL_ID = getenv_int("RANK_LOG_CHANNEL_ID")
+OWNER_ID = getenv_int("SERVER_OWNER_ID")
 RANK_NOTIFICATION_CHANNEL_ID = getenv_int("RANK_NOTIFICATION_CHANNEL_ID")
 
 # ========================================
 # PATH / SETTINGS
 # ========================================
 
-DATA_PATH = "data/rank_data.json"
+DATA_PATH = "data/rank/rank_data.json"
 FONT_PATH = "assets/font/NotoSansJP-Bold.otf"
 CARD_SIZE = (600, 180)
 
 RANK_BG_TABLE = {
-    0: "assets/bg/bg_0.png",
-    10: "assets/bg/bg_10.png",
-    20: "assets/bg/bg_20.png",
-    30: "assets/bg/bg_30.png",
-    40: "assets/bg/bg_40.png",
-    50: "assets/bg/bg_50.png",
-    75: "assets/bg/bg_75.png",
-    100: "assets/bg/bg_100.png",
+    0: "assets/rankbg/bg_0.png",
+    20: "assets/rankbg/bg_20.png",
+    40: "assets/rankbg/bg_40.png",
+    60: "assets/rankbg/bg_60.png",
+    100: "assets/rankbg/bg_100.png",
 }
 
 RANK_ROLES = {
@@ -296,3 +293,4 @@ class Rank(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Rank(bot))
+
