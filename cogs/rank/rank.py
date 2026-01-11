@@ -18,13 +18,13 @@ from PIL import Image, ImageDraw, ImageFont
 # =====================
 load_dotenv("ci/.env")
 
-LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID"))
-OWNER_ID = int(os.getenv("OWNER_ID"))
+LOG_CHANNEL_ID = int(os.getenv("RANK_LOG_CHANNEL_ID"))
+OWNER_ID = int(os.getenv("SERVER_OWNER_ID"))
 RANK_NOTIFICATION_CHANNEL_ID = int(os.getenv("RANK_NOTIFICATION_CHANNEL_ID"))
 
-DB = "rank.db"
-RANK_BG = "assets/rank_bg.png"
-FONT_PATH = "assets/font.ttf"
+DB = "data/rank/rank.db"
+RANK_BG = "assets/rankbg/rank_bg.png"
+FONT_PATH = "assets/font/font.ttf"
 
 # =====================
 # RANK ROLE TABLE
@@ -183,3 +183,4 @@ class Rank(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Rank(bot))
+
