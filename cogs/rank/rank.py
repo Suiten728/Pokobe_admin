@@ -146,7 +146,6 @@ class Rank(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         init_db()
-        self.bot.tree.add_command(self.rank_group)
 
     # =====================
     # /rank GROUP
@@ -330,4 +329,5 @@ class Rank(commands.Cog):
 # =====================
 async def setup(bot: commands.Bot):
     await bot.add_cog(Rank(bot))
+
 
