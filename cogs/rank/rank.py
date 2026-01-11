@@ -228,23 +228,6 @@ class Rank(commands.Cog):
         )
 
     # =====================
-    # /rank  （= show）
-    # =====================
-    @app_commands.command(
-        name="rank",
-        description="自分または指定ユーザーのランクを表示"
-    )
-    async def rank_root(
-        self,
-        interaction: discord.Interaction,
-        user: discord.Member | None = None
-    ):
-        await self._send_rank(
-            interaction,
-            user or interaction.user
-        )
-
-    # =====================
     # /rank show
     # =====================
     @rank_group.command(
@@ -347,3 +330,4 @@ class Rank(commands.Cog):
 # =====================
 async def setup(bot: commands.Bot):
     await bot.add_cog(Rank(bot))
+
