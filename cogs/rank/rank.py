@@ -19,7 +19,7 @@ OWNER_ID = int(os.getenv("SERVER_OWNER_ID"))
 RANK_NOTIFICATION_CHANNEL_ID = int(os.getenv("RANK_NOTIFICATION_CHANNEL_ID"))
 
 DATA_PATH = "data/rank/rank_data.json"
-BG_IMAGE_PATH = "assets/rank_bg.png"
+BG_IMAGE_PATH = "assets/welcome_bg.png"
 
 # ========================================
 # Rank Definitions
@@ -230,3 +230,4 @@ class Rank(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Rank(bot))
+
