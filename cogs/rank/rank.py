@@ -1,7 +1,6 @@
 # ============================================
 # rank.py
-# Rank System Core
-# Spec v1.14.0 COMPLIANT
+# Rank System Core (Clean Final Version)
 # ============================================
 
 import discord
@@ -9,20 +8,24 @@ from discord.ext import commands
 from discord import app_commands
 import sqlite3
 import os
+import io
+import requests
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 
 # =====================
-# ENV
+# ENV & PATH
 # =====================
 load_dotenv("ci/.env")
 
-DB_PATH = "data/rank/rank.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-RANK_BG_PATH = "assets/rankbg/rank_bg.png"
-FONT_BOLD = "assets/font/NotoSansJP-Bold.ttf"
-FONT_MED = "assets/font/NotoSansJP-Medium.ttf"
-FONT_REG = "assets/font/NotoSansJP-Regular.ttf"
+DB_PATH = os.path.join(BASE_DIR, "../../data/rank/rank.db")
+RANK_BG_PATH = os.path.join(BASE_DIR, "../../assets/rankbg/rank_bg.png")
+
+FONT_BOLD = os.path.join(BASE_DIR, "../../assets/font/NotoSansJP-Bold.ttf")
+FONT_MED  = os.path.join(BASE_DIR, "../../assets/font/NotoSansJP-Medium.ttf")
+FONT_REG  = os.path.join(BASE_DIR, "../../assets/font/NotoSansJP-Regular.ttf")
 
 # =====================
 # DB INIT
@@ -30,7 +33,6 @@ FONT_REG = "assets/font/NotoSansJP-Regular.ttf"
 def init_db():
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
-
         cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -39,7 +41,6 @@ def init_db():
             mention INTEGER DEFAULT 1
         )
         """)
-
         cur.execute("""
         CREATE TABLE IF NOT EXISTS weekly_exp (
             user_id INTEGER PRIMARY KEY,
@@ -48,25 +49,41 @@ def init_db():
         """)
 
 # =====================
-# LEVEL FORMULA
+# LEVEL CALC
 # =====================
 def total_exp_for_level(level: int) -> int:
     return 20 * level * (level + 1)
 
 def calc_level(exp: int) -> int:
-    level = 0
-    while exp >= total_exp_for_level(level + 1):
-        level += 1
-    return level
+    lvl = 0
+    while exp >= total_exp_for_level(lvl + 1):
+        lvl += 1
+    return lvl
+
+# =====================
+# IMAGE UTILS
+# =====================
+def load_icon(url: str, size: int) -> Image.Image:
+    res = requests.get(url)
+    img = Image.open(io.BytesIO(res.content)).convert("RGBA")
+    return img.resize((size, size))
+
+def circle_crop(img: Image.Image, size: int) -> Image.Image:
+    mask = Image.new("L", (size, size), 0)
+    d = ImageDraw.Draw(mask)
+    d.ellipse((0, 0, size, size), fill=255)
+    out = Image.new("RGBA", (size, size))
+    out.paste(img, (0, 0), mask)
+    return out
 
 # =====================
 # IMAGE GENERATION
 # =====================
 def generate_rank_card(
-    username: str,
+    interaction: discord.Interaction,
+    user: discord.Member,
     level: int,
     exp: int,
-    next_exp: int,
     server_rank: int,
     weekly_rank: int,
     weekly_exp: int
@@ -75,52 +92,69 @@ def generate_rank_card(
     img = Image.open(RANK_BG_PATH).convert("RGBA")
     draw = ImageDraw.Draw(img)
 
-    font_big = ImageFont.truetype(FONT_BOLD, 48)
-    font_mid = ImageFont.truetype(FONT_MED, 30)
-    font_small = ImageFont.truetype(FONT_REG, 24)
+    # Fonts
+    font_big = ImageFont.truetype(FONT_BOLD, 44)
+    font_mid = ImageFont.truetype(FONT_MED, 28)
+    font_small = ImageFont.truetype(FONT_REG, 22)
 
-    # USERNAME
-    draw.text((180, 35), username, font=font_big, fill=(0, 0, 0))
-
-    # LEVEL
-    draw.text((930, 35), f"{level:02}", font=font_big, fill=(30, 233, 182))
-
-    # SERVER RANK
-    draw.text((180, 120), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
-
-    # WEEKLY RANK
-    draw.text((360, 120), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
-
-    # WEEKLY EXP
-    draw.text((560, 120), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
-
-    # EXP TEXT
-    draw.text(
-        (180, 190),
-        f"EXP : {exp}/{next_exp}",
-        font=font_small,
-        fill=(0, 0, 0)
+    # Icons
+    user_icon = circle_crop(
+        load_icon(user.display_avatar.url, 96), 96
     )
 
-    # PROGRESS BAR
-    bar_x, bar_y = 180, 225
-    bar_w, bar_h = 720, 18
+    guild_icon = None
+    if interaction.guild.icon:
+        guild_icon = circle_crop(
+            load_icon(interaction.guild.icon.url, 42), 42
+        )
 
-    ratio = min(exp / next_exp, 1) if next_exp > 0 else 0
-    fill_w = int(bar_w * ratio)
+    # Paste icons
+    img.paste(user_icon, (70, 55), user_icon)
+    if guild_icon:
+        img.paste(guild_icon, (55, 35), guild_icon)
+
+    # Username
+    draw.text((190, 40), user.display_name, font=font_big, fill=(0, 0, 0))
+
+    # Level
+    draw.text((980, 40), f"{level:02}", font=font_big, fill=(30, 233, 182))
+
+    # Labels
+    draw.text((190, 115), "SERVER RANK", font=font_small, fill=(90, 90, 90))
+    draw.text((350, 115), "WEEKLY RANK", font=font_small, fill=(90, 90, 90))
+    draw.text((530, 115), "WEEKLY EXP", font=font_small, fill=(90, 90, 90))
+
+    # Values
+    draw.text((190, 145), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((350, 145), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((530, 145), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
+
+    # EXP Bar
+    next_exp = total_exp_for_level(level + 1)
+    ratio = min(exp / next_exp, 1) if next_exp else 0
+
+    bar_x, bar_y = 190, 205
+    bar_w, bar_h = 720, 18
 
     draw.rectangle(
         (bar_x, bar_y, bar_x + bar_w, bar_y + bar_h),
         fill=(200, 200, 200)
     )
     draw.rectangle(
-        (bar_x, bar_y, bar_x + fill_w, bar_y + bar_h),
+        (bar_x, bar_y, bar_x + int(bar_w * ratio), bar_y + bar_h),
         fill=(30, 233, 182)
     )
 
-    out_path = f"/tmp/rank_{username}.png"
-    img.save(out_path)
-    return out_path
+    draw.text(
+        (190, 175),
+        f"EXP : {exp}/{next_exp}",
+        font=font_small,
+        fill=(0, 0, 0)
+    )
+
+    out = f"/tmp/rank_{user.id}.png"
+    img.save(out)
+    return out
 
 # =====================
 # COG
@@ -130,196 +164,52 @@ class Rank(commands.Cog):
         self.bot = bot
         init_db()
 
-    # =====================
-    # /rank GROUP
-    # =====================
-    rank = app_commands.Group(
-        name="rank",
-        description="ランク関連コマンド"
-    )
+    rank = app_commands.Group(name="rank", description="ランク関連コマンド")
 
-    # =====================
-    # INTERNAL
-    # =====================
-    async def _send_rank(
-        self,
-        interaction: discord.Interaction,
-        user: discord.Member
-    ):
-        try:
-            members = [m for m in interaction.guild.members if not m.bot]
-            total_members = len(members)
-
-            with sqlite3.connect(DB_PATH) as con:
-                cur = con.cursor()
-
-                cur.execute(
-                    "SELECT exp FROM users WHERE user_id=?",
-                    (user.id,)
-                )
-                row = cur.fetchone()
-                exp = row[0] if row else 0
-                level = calc_level(exp)
-
-                # SERVER RANK
-                cur.execute(
-                    "SELECT user_id FROM users WHERE exp>0 ORDER BY exp DESC"
-                )
-                ranked = [r[0] for r in cur.fetchall()]
-
-                server_rank = (
-                    ranked.index(user.id) + 1
-                    if exp > 0 and user.id in ranked
-                    else total_members
-                )
-
-                # WEEKLY
-                cur.execute(
-                    "SELECT user_id FROM weekly_exp WHERE exp>0 ORDER BY exp DESC"
-                )
-                wranked = [r[0] for r in cur.fetchall()]
-
-                weekly_rank = (
-                    wranked.index(user.id) + 1
-                    if user.id in wranked
-                    else total_members
-                )
-
-                cur.execute(
-                    "SELECT exp FROM weekly_exp WHERE user_id=?",
-                    (user.id,)
-                )
-                w = cur.fetchone()
-                weekly_exp = w[0] if w else 0
-
-            next_exp = total_exp_for_level(level + 1)
-
-            card = generate_rank_card(
-                user.display_name,
-                level,
-                exp,
-                next_exp,
-                server_rank,
-                weekly_rank,
-                weekly_exp
-            )
-
-            await interaction.followup.send(
-                file=discord.File(card)
-            )
-
-        except Exception as e:
-            # ★ これが超重要
-            await interaction.followup.send(
-                f"❌ ランク表示中にエラーが発生しました\n```{e}```",
-                ephemeral=True
-            )
-            raise  # ログにも出す
-
-    # =====================
     # /rank show
-    # =====================
-    @rank.command(
-        name="show",
-        description="自分または指定ユーザーのランクを表示"
-    )
+    @rank.command(name="show", description="ランクを表示")
     async def rank_show(
         self,
         interaction: discord.Interaction,
         user: discord.Member | None = None
     ):
-        await interaction.response.defer()
-        await self._send_rank(
-            interaction,
-            user or interaction.user
-        )
+        user = user or interaction.user
 
-    # =====================
-    # /rank leaderboard
-    # =====================
-    @rank.command(
-        name="leaderboard",
-        description="ランキングを表示"
-    )
-    @app_commands.choices(
-        type=[
-            app_commands.Choice(name="Normal", value="normal"),
-            app_commands.Choice(name="Weekly", value="weekly"),
-        ]
-    )
-    async def rank_leaderboard(
-        self,
-        interaction: discord.Interaction,
-        type: app_commands.Choice[str]
-    ):
+        members = [m for m in interaction.guild.members if not m.bot]
+        total = len(members)
+
         with sqlite3.connect(DB_PATH) as con:
             cur = con.cursor()
 
-            if type.value == "weekly":
-                cur.execute(
-                    "SELECT user_id, exp FROM weekly_exp WHERE exp>0 ORDER BY exp DESC LIMIT 10"
-                )
-            else:
-                cur.execute(
-                    "SELECT user_id, exp FROM users WHERE exp>0 ORDER BY exp DESC LIMIT 10"
-                )
+            cur.execute("SELECT exp FROM users WHERE user_id=?", (user.id,))
+            row = cur.fetchone()
+            exp = row[0] if row else 0
+            level = calc_level(exp)
 
-            rows = cur.fetchall()
+            cur.execute("SELECT user_id FROM users WHERE exp>0 ORDER BY exp DESC")
+            ranked = [r[0] for r in cur.fetchall()]
+            server_rank = ranked.index(user.id) + 1 if user.id in ranked else total
 
-        embed = discord.Embed(
-            title="🏆 ランキング",
-            colour=discord.Colour.gold()
+            cur.execute("SELECT user_id FROM weekly_exp WHERE exp>0 ORDER BY exp DESC")
+            wranked = [r[0] for r in cur.fetchall()]
+            weekly_rank = wranked.index(user.id) + 1 if user.id in wranked else total
+
+            cur.execute("SELECT exp FROM weekly_exp WHERE user_id=?", (user.id,))
+            w = cur.fetchone()
+            weekly_exp = w[0] if w else 0
+
+        card = generate_rank_card(
+            interaction,
+            user,
+            level,
+            exp,
+            server_rank,
+            weekly_rank,
+            weekly_exp
         )
 
-        if not rows:
-            embed.description = "誰もEXPを所持していません"
-            await interaction.response.send_message(embed=embed)
-            return
-
-        for i, (uid, exp) in enumerate(rows, start=1):
-            member = interaction.guild.get_member(uid)
-            if member:
-                embed.add_field(
-                    name=f"{i}位",
-                    value=f"{member.display_name} - {exp} EXP",
-                    inline=False
-                )
-
-        await interaction.response.send_message(embed=embed)
-
-    # =====================
-    # /rank notify
-    # =====================
-    @rank.command(
-        name="notify",
-        description="ランク通知のメンション切替"
-    )
-    @app_commands.choices(
-        mode=[
-            app_commands.Choice(name="ON", value="on"),
-            app_commands.Choice(name="OFF", value="off"),
-        ]
-    )
-    async def rank_notify(
-        self,
-        interaction: discord.Interaction,
-        mode: app_commands.Choice[str]
-    ):
-        val = 1 if mode.value == "on" else 0
-
-        with sqlite3.connect(DB_PATH) as con:
-            con.execute(
-                """
-                INSERT INTO users(user_id, mention)
-                VALUES(?,?)
-                ON CONFLICT(user_id) DO UPDATE SET mention=?
-                """,
-                (interaction.user.id, val, val)
-            )
-
         await interaction.response.send_message(
-            "✅ 設定を更新しました",
-            ephemeral=True
+            file=discord.File(card)
         )
 
 # =====================
