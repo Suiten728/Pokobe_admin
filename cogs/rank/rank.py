@@ -151,6 +151,7 @@ class Rank(commands.Cog):
         interaction: discord.Interaction,
         user: discord.Member | None = None
     ):
+        await interaction.response.defer()
         user = user or interaction.user
 
         members = [m for m in interaction.guild.members if not m.bot]
