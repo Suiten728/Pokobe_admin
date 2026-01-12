@@ -97,31 +97,31 @@ async def generate_rank_card(
 
     async with aiohttp.ClientSession() as session:
         user_icon = circle_crop(
-            await load_icon(session, user.display_avatar.url, 96), 96
+            await load_icon(session, user.display_avatar.url, 94), 94
         )
 
         guild_icon = None
         if interaction.guild.icon:
             guild_icon = circle_crop(
-                await load_icon(session, interaction.guild.icon.url, 42), 42
+                await load_icon(session, interaction.guild.icon.url, 45), 45
             )
 
-    img.paste(user_icon, (55, 35), user_icon)
+    img.paste(user_icon, (35, 35), user_icon)
     if guild_icon:
-        img.paste(guild_icon, (70, 55), guild_icon)
+        img.paste(guild_icon, (70, 65), guild_icon)
 
-    draw.text((100, 20), user.display_name, font=font_big, fill=(0, 0, 0))
-    draw.text((420, 40), f"{level:02}", font=font_big, fill=(30, 233, 182))
+    draw.text((100, 10), user.display_name, font=font_big, fill=(0, 0, 0))
+    draw.text((415, 35), f"{level:02}", font=font_big, fill=(30, 233, 182))
 
-    draw.text((100, 115), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((250, 115), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((400, 115), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
+    draw.text((140, 115), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((230, 115), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((320, 115), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
 
     next_exp = total_exp_for_level(level + 1)
     ratio = min(exp / next_exp, 1) if next_exp else 0
 
-    bar_x, bar_y = 20, 165
-    bar_w, bar_h = 720, 18
+    bar_x, bar_y = 10, 168
+    bar_w, bar_h = 490, 14
 
     draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill=(200, 200, 200))
     draw.rectangle(
@@ -129,7 +129,7 @@ async def generate_rank_card(
         fill=(30, 233, 182)
     )
 
-    draw.text((20, 155), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
+    draw.text((10, 145), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
 
     out = f"/tmp/rank_{user.id}.png"
     img.save(out)
