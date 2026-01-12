@@ -19,8 +19,8 @@ from PIL import Image, ImageDraw, ImageFont
 load_dotenv("ci/.env")
 
 DB_PATH = "data/rank/rank.db"
-RANK_BG_PATH = "assets/rankbg/rank_bg.png"
-
+RANK_BG_PATH = "assets/rankbg/rank-bg.png"
+# rank-bg.png - 4000 × 1504 px 
 FONT_BOLD = "assets/font/NotoSansJP-Bold.ttf"
 FONT_MED  = "assets/font/NotoSansJP-Medium.ttf"
 FONT_REG  = "assets/font/NotoSansJP-Regular.ttf"
@@ -97,31 +97,31 @@ async def generate_rank_card(
 
     async with aiohttp.ClientSession() as session:
         user_icon = circle_crop(
-            await load_icon(session, user.display_avatar.url, 94), 94
+            await load_icon(session, user.display_avatar.url, 730), 730
         )
 
         guild_icon = None
         if interaction.guild.icon:
             guild_icon = circle_crop(
-                await load_icon(session, interaction.guild.icon.url, 45), 45
+                await load_icon(session, interaction.guild.icon.url, 360), 360
             )
 
-    img.paste(user_icon, (35, 35), user_icon)
+    img.paste(user_icon, (180, 200), user_icon)
     if guild_icon:
-        img.paste(guild_icon, (70, 65), guild_icon)
+        img.paste(guild_icon, (560, 600), guild_icon)
 
-    draw.text((100, 10), user.display_name, font=font_big, fill=(0, 0, 0))
-    draw.text((415, 35), f"{level:02}", font=font_big, fill=(30, 233, 182))
+    draw.text((800, 80), user.display_name, font=font_big, fill=(0, 0, 0))
+    draw.text((3320, 280), f"{level:02}", font=font_big, fill=(30, 233, 182))
 
-    draw.text((140, 115), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((230, 115), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((320, 115), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
+    draw.text((1120, 920), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((1840, 920), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((2640, 920), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
 
     next_exp = total_exp_for_level(level + 1)
     ratio = min(exp / next_exp, 1) if next_exp else 0
 
-    bar_x, bar_y = 10, 168
-    bar_w, bar_h = 490, 14
+    bar_x, bar_y = 80, 1400
+    bar_w, bar_h = 3840, 96
 
     draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill=(200, 200, 200))
     draw.rectangle(
@@ -129,7 +129,7 @@ async def generate_rank_card(
         fill=(30, 233, 182)
     )
 
-    draw.text((10, 145), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
+    draw.text((80, 1040), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
 
     out = f"/tmp/rank_{user.id}.png"
     img.save(out)
