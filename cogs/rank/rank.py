@@ -20,7 +20,7 @@ load_dotenv("ci/.env")
 
 DB_PATH = "data/rank/rank.db"
 RANK_BG_PATH = "assets/rankbg/rank-bg.png"
-# rank-bg.png - 4000 × 1504 px 
+# rank-bg.png - 2000 × 752 px (4000×1504から半分に縮小)
 FONT_BOLD = "assets/font/NotoSansJP-Bold.ttf"
 FONT_MED  = "assets/font/NotoSansJP-Medium.ttf"
 FONT_REG  = "assets/font/NotoSansJP-Regular.ttf"
@@ -29,6 +29,7 @@ FONT_REG  = "assets/font/NotoSansJP-Regular.ttf"
 # DB INIT
 # =====================
 def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
         cur.execute("""
@@ -45,6 +46,7 @@ def init_db():
             exp INTEGER DEFAULT 0
         )
         """)
+        con.commit()
 
 # =====================
 # LEVEL CALC
@@ -65,7 +67,7 @@ async def load_icon(session: aiohttp.ClientSession, url: str, size: int) -> Imag
     async with session.get(url) as resp:
         data = await resp.read()
     img = Image.open(io.BytesIO(data)).convert("RGBA")
-    return img.resize((size, size))
+    return img.resize((size, size), Image.Resampling.LANCZOS)
 
 def circle_crop(img: Image.Image, size: int) -> Image.Image:
     mask = Image.new("L", (size, size), 0)
@@ -76,7 +78,7 @@ def circle_crop(img: Image.Image, size: int) -> Image.Image:
     return out
 
 # =====================
-# IMAGE GENERATION
+# IMAGE GENERATION (2000px版)
 # =====================
 async def generate_rank_card(
     interaction: discord.Interaction,
@@ -91,37 +93,41 @@ async def generate_rank_card(
     img = Image.open(RANK_BG_PATH).convert("RGBA")
     draw = ImageDraw.Draw(img)
 
-    font_big = ImageFont.truetype(FONT_BOLD, 44)
-    font_mid = ImageFont.truetype(FONT_MED, 28)
-    font_small = ImageFont.truetype(FONT_REG, 22)
+    # フォントサイズを半分に調整
+    font_big = ImageFont.truetype(FONT_BOLD, 22)
+    font_mid = ImageFont.truetype(FONT_MED, 14)
+    font_small = ImageFont.truetype(FONT_REG, 11)
 
     async with aiohttp.ClientSession() as session:
+        # アイコンサイズも半分に
         user_icon = circle_crop(
-            await load_icon(session, user.display_avatar.url, 730), 730
+            await load_icon(session, user.display_avatar.url, 365), 365
         )
 
         guild_icon = None
         if interaction.guild.icon:
             guild_icon = circle_crop(
-                await load_icon(session, interaction.guild.icon.url, 360), 360
+                await load_icon(session, interaction.guild.icon.url, 180), 180
             )
 
-    img.paste(user_icon, (180, 200), user_icon)
+    # 座標も半分に調整
+    img.paste(user_icon, (90, 100), user_icon)
     if guild_icon:
-        img.paste(guild_icon, (560, 600), guild_icon)
+        img.paste(guild_icon, (280, 300), guild_icon)
 
-    draw.text((800, 80), user.display_name, font=font_big, fill=(0, 0, 0))
-    draw.text((3320, 280), f"{level:02}", font=font_big, fill=(30, 233, 182))
+    draw.text((400, 40), user.display_name, font=font_big, fill=(0, 0, 0))
+    draw.text((1660, 140), f"{level:02}", font=font_big, fill=(30, 233, 182))
 
-    draw.text((1120, 920), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((1840, 920), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((2640, 920), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
+    draw.text((560, 460), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((920, 460), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((1320, 460), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
 
     next_exp = total_exp_for_level(level + 1)
     ratio = min(exp / next_exp, 1) if next_exp else 0
 
-    bar_x, bar_y = 80, 1400
-    bar_w, bar_h = 3840, 96
+    # バーの座標とサイズも半分に
+    bar_x, bar_y = 40, 700
+    bar_w, bar_h = 1920, 48
 
     draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill=(200, 200, 200))
     draw.rectangle(
@@ -129,8 +135,9 @@ async def generate_rank_card(
         fill=(30, 233, 182)
     )
 
-    draw.text((80, 1040), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
+    draw.text((40, 520), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
 
+    os.makedirs("/tmp", exist_ok=True)
     out = f"/tmp/rank_{user.id}.png"
     img.save(out)
     return out
@@ -181,7 +188,80 @@ class Rank(commands.Cog):
             interaction, user, level, exp, server_rank, weekly_rank, weekly_exp
         )
 
-        await interaction.response.send_message(file=discord.File(card))
+        # 修正: interaction.response.defer()の後はfollowupを使う
+        await interaction.followup.send(file=discord.File(card))
+
+    @rank.command(name="leaderboard", description="ランキングを表示")
+    async def rank_leaderboard(
+        self,
+        interaction: discord.Interaction,
+        type: str = "total"
+    ):
+        await interaction.response.defer()
+
+        with sqlite3.connect(DB_PATH) as con:
+            cur = con.cursor()
+            
+            if type == "weekly":
+                cur.execute("""
+                    SELECT user_id, exp FROM weekly_exp 
+                    WHERE exp > 0 
+                    ORDER BY exp DESC 
+                    LIMIT 10
+                """)
+                title = "📊 週間ランキング"
+            else:
+                cur.execute("""
+                    SELECT user_id, exp FROM users 
+                    WHERE exp > 0 
+                    ORDER BY exp DESC 
+                    LIMIT 10
+                """)
+                title = "🏆 総合ランキング"
+            
+            rows = cur.fetchall()
+
+        if not rows:
+            await interaction.followup.send("ランキングデータがありません。")
+            return
+
+        embed = discord.Embed(title=title, color=discord.Color.green())
+        
+        for idx, (user_id, exp) in enumerate(rows, 1):
+            user = interaction.guild.get_member(user_id)
+            if user:
+                level = calc_level(exp) if type != "weekly" else ""
+                level_text = f"Lv.{level} | " if level else ""
+                embed.add_field(
+                    name=f"{idx}. {user.display_name}",
+                    value=f"{level_text}EXP: {exp}",
+                    inline=False
+                )
+
+        await interaction.followup.send(embed=embed)
+
+    @rank.command(name="mention", description="レベルアップ時のメンション設定")
+    async def rank_mention(
+        self,
+        interaction: discord.Interaction,
+        enabled: bool
+    ):
+        with sqlite3.connect(DB_PATH) as con:
+            cur = con.cursor()
+            cur.execute("""
+                INSERT INTO users (user_id, mention) 
+                VALUES (?, ?) 
+                ON CONFLICT(user_id) DO UPDATE SET mention=?
+            """, (interaction.user.id, int(enabled), int(enabled)))
+            con.commit()
+
+        status = "有効" if enabled else "無効"
+        await interaction.response.send_message(
+            f"レベルアップ時のメンションを{status}にしました。",
+            ephemeral=True
+        )
+
+
 
 # =====================
 # SETUP
