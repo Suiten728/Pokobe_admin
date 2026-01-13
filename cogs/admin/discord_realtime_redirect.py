@@ -4,14 +4,16 @@ import os
 from dotenv import load_dotenv
 
 # .envファイルを読み込む
-load_dotenv('ci/')
+load_dotenv('ci/.env')
+STAFF_ROLE_ID = int(os.getenv('STAFF_ROLE_ID'))
+REALTIME_CHANNEL_ID = int(os.getenv('REALTIME_CHANNEL_ID'))
 
 class RealtimeRedirect(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         # .envから設定を読み込む
-        self.staff_role_id = int(os.getenv('STAFF_ROLE_ID'))
-        self.realtime_channel_id = int(os.getenv('REALTIME_CHANNEL_ID'))
+        self.staff_role_id = STAFF_ROLE_ID
+        self.realtime_channel_id = REALTIME_CHANNEL_ID
     
     @commands.Cog.listener()
     async def on_message(self, message):
