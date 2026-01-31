@@ -19,8 +19,8 @@ from PIL import Image, ImageDraw, ImageFont
 load_dotenv("ci/.env")
 
 DB_PATH = "data/rank/rank.db"
-RANK_BG_PATH = "assets/rankbg/rank-bg.png"
-# rank-bg.png - 2000 × 752 px (4000×1504から半分に縮小)
+RANK_BG_PATH = "assets/rankbg/rank_bg.png"
+# rank_bg.png - 2000 × 752 px (4000×1504から半分に縮小)
 FONT_BOLD = "assets/font/NotoSansJP-Bold.ttf"
 FONT_MED  = "assets/font/NotoSansJP-Medium.ttf"
 FONT_REG  = "assets/font/NotoSansJP-Regular.ttf"
@@ -151,6 +151,64 @@ class Rank(commands.Cog):
         init_db()
 
     rank = app_commands.Group(name="rank", description="ランク関連コマンド")
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """メッセージ送信時に経験値を付与"""
+        if message.author.bot or not message.guild:
+            return
+
+        # 経験値を付与 (メッセージ1つにつき5～15 EXP)
+        import random
+        gained_exp = random.randint(5, 15)
+
+        with sqlite3.connect(DB_PATH) as con:
+            cur = con.cursor()
+            
+            # 現在の経験値とレベルを取得
+            cur.execute("SELECT exp FROM users WHERE user_id=?", (message.author.id,))
+            row = cur.fetchone()
+            old_exp = row[0] if row else 0
+            old_level = calc_level(old_exp)
+
+            # 経験値を追加
+            cur.execute("""
+                INSERT INTO users (user_id, exp, level) 
+                VALUES (?, ?, ?) 
+                ON CONFLICT(user_id) DO UPDATE SET exp = exp + ?
+            """, (message.author.id, gained_exp, old_level, gained_exp))
+
+            # 週間経験値も追加
+            cur.execute("""
+                INSERT INTO weekly_exp (user_id, exp) 
+                VALUES (?, ?) 
+                ON CONFLICT(user_id) DO UPDATE SET exp = exp + ?
+            """, (message.author.id, gained_exp, gained_exp))
+
+            con.commit()
+
+            # 新しいレベルを計算
+            new_exp = old_exp + gained_exp
+            new_level = calc_level(new_exp)
+
+            # レベルアップした場合
+            if new_level > old_level:
+                # レベルを更新
+                cur.execute("UPDATE users SET level=? WHERE user_id=?", (new_level, message.author.id))
+                con.commit()
+
+                # メンション設定を確認
+                cur.execute("SELECT mention FROM users WHERE user_id=?", (message.author.id,))
+                mention_row = cur.fetchone()
+                mention_enabled = mention_row[0] if mention_row else 1
+
+                if mention_enabled:
+                    try:
+                        await message.channel.send(
+                            f"🎉 {message.author.mention} がレベルアップしました！ **Lv.{old_level}** → **Lv.{new_level}**"
+                        )
+                    except Exception as e:
+                        print(f"レベルアップ通知エラー: {e}")
 
     @rank.command(name="show", description="ランクを表示")
     async def rank_show(
