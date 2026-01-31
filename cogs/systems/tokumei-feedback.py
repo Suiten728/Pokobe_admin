@@ -10,7 +10,6 @@ import random
 load_dotenv("ci/.env")
 
 TOKUMEI_WEBHOOK1_URL = os.getenv("TOKUMEI_WEBHOOK1_URL")
-TOKUMEI_WEBHOOK2_URL = os.getenv("TOKUMEI_WEBHOOK2_URL")
 
 DATA_FILE = "data/anonymous_users.json"
 PANEL_MESSAGE_FILE = "data/anonymous_panel_message.json"
@@ -108,8 +107,7 @@ class AnonymousModal(discord.ui.Modal, title="匿名メッセージ送信"):
 class AnonymousBox(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.webhook_main_url = TOKUMEI_WEBHOOK1_URL
-        self.webhook_send_url = TOKUMEI_WEBHOOK2_URL
+        self.webhook_send_url = TOKUMEI_WEBHOOK1_URL
 
     # 匿名番号
     def get_anonymous_number(self, user_id: int):
@@ -146,8 +144,8 @@ class AnonymousBox(commands.Cog):
 
         # 新しいメッセージを送信
         embed = discord.Embed(
-            title="匿名ご意見箱",
-            description="ボタンから匿名で送信できます。",
+            title="👤 匿名ご意見箱",
+            description="匿名でご意見・ご要望を送信できます。\n\n下のボタンを押してメッセージを入力してください。\nこちらを介さず、直接チャンネルに送信してもokです。匿名を希望する方はご利用ください。",
             color=0x2ECC71
         )
         
@@ -155,7 +153,7 @@ class AnonymousBox(commands.Cog):
         save_panel_info(channel.id, new_message.id)
 
     # パネル設置
-    @commands.command(name="set_anonymous_panel")
+    @commands.command(name="set_AP")
     @commands.has_permissions(administrator=True)
     async def set_panel(self, ctx):
         # コマンドメッセージを削除
@@ -165,8 +163,8 @@ class AnonymousBox(commands.Cog):
             pass
 
         embed = discord.Embed(
-            title="匿名ご意見箱",
-            description="ボタンから匿名で送信できます。",
+            title="👤 匿名ご意見箱",
+            description="匿名でご意見・ご要望を送信できます。\n\n下のボタンを押してメッセージを入力してください。\nこちらを介さず、直接チャンネルに送信してもokです。匿名を希望する方はご利用ください。",
             color=0x2ECC71
         )
         

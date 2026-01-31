@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import sqlite3
+import asyncio
 
 DB_PATH = "data/pin.db"
 
@@ -8,6 +9,7 @@ class LockMessage(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self._init_db()
+        self.last_sent_message_id = {}  # チャンネルごとの最後に送信したメッセージIDを記録
 
     def _init_db(self):
         conn = sqlite3.connect(DB_PATH)
@@ -72,68 +74,81 @@ class LockMessage(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-     # BotやDMは無視
-     if message.author.bot or not message.guild:
-        return
+        # DMは無視
+        if not message.guild:
+            return
 
-     # このギルド・チャンネルで固定対象があるかを取得
-     conn = sqlite3.connect(DB_PATH)
-     c = conn.cursor()
-     c.execute(
-        "SELECT message_id FROM locked_messages WHERE guild_id = ? AND channel_id = ?",
-        (message.guild.id, message.channel.id),
-     )
-     rows = c.fetchall()
-     conn.close()
+        channel_key = (message.guild.id, message.channel.id)
 
-     if not rows:
-        return
+        # Botが送信した場合は2秒待つ
+        if message.author.bot:
+            await asyncio.sleep(2)
+            # 待機後、このメッセージが自分が送信した固定メッセージかチェック
+            if channel_key in self.last_sent_message_id:
+                if message.id == self.last_sent_message_id[channel_key]:
+                    # 自分が送信した固定メッセージなので何もしない
+                    return
 
-     for (msg_id,) in rows:
-        try:
-            # 直前の「固定コピー」を取得
-            old_msg = await message.channel.fetch_message(msg_id)
+        # このギルド・チャンネルで固定対象があるかを取得
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute(
+            "SELECT message_id FROM locked_messages WHERE guild_id = ? AND channel_id = ?",
+            (message.guild.id, message.channel.id),
+        )
+        rows = c.fetchall()
+        conn.close()
 
-            # ---- ここがポイント：常に“埋め込みとして”再送する ----
-            # 元が埋め込みなら1つ目をそのまま使う／なければ本文をdescriptionへ
-            if old_msg.embeds:
-                embed = old_msg.embeds[0]
-            else:
-                embed = discord.Embed(
-                    description=old_msg.content or "\u200b",  # 空を避ける
-                    color=discord.Color.blue()
-                )
+        if not rows:
+            return
 
-            # 新しい埋め込みメッセージを最下部に送信（content/添付は送らない）
-            new_msg = await message.channel.send(embed=embed)
-
-            # DBのmessage_idを更新（= 次回はこの新しい固定コピーを対象にする）
-            conn = sqlite3.connect(DB_PATH)
-            c = conn.cursor()
-            c.execute(
-                "UPDATE locked_messages SET message_id = ? WHERE guild_id = ? AND channel_id = ? AND message_id = ?",
-                (new_msg.id, message.guild.id, message.channel.id, msg_id),
-            )
-            conn.commit()
-            conn.close()
-
-            # 直前の固定コピーだけ削除（他の通常メッセージは削除しない）
+        for (msg_id,) in rows:
             try:
-                await old_msg.delete()
-            except discord.HTTPException:
-                pass
+                # 直前の「固定コピー」を取得
+                old_msg = await message.channel.fetch_message(msg_id)
 
-        except discord.NotFound:
-            # 直前の固定コピーが見つからない場合はDBから掃除
-            conn = sqlite3.connect(DB_PATH)
-            c = conn.cursor()
-            c.execute(
-                "DELETE FROM locked_messages WHERE guild_id = ? AND channel_id = ? AND message_id = ?",
-                (message.guild.id, message.channel.id, msg_id),
-            )
-            conn.commit()
-            conn.close()
+                # ---- ここがポイント：常に"埋め込みとして"再送する ----
+                # 元が埋め込みなら1つ目をそのまま使う／なければ本文をdescriptionへ
+                if old_msg.embeds:
+                    embed = old_msg.embeds[0]
+                else:
+                    embed = discord.Embed(
+                        description=old_msg.content or "\u200b",  # 空を避ける
+                        color=discord.Color.blue()
+                    )
 
+                # 新しい埋め込みメッセージを最下部に送信（content/添付は送らない）
+                new_msg = await message.channel.send(embed=embed)
+
+                # このメッセージIDを記録（次回のチェック用）
+                self.last_sent_message_id[channel_key] = new_msg.id
+
+                # 送信直後に即座にDBを更新
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+                c.execute(
+                    "UPDATE locked_messages SET message_id = ? WHERE guild_id = ? AND channel_id = ? AND message_id = ?",
+                    (new_msg.id, message.guild.id, message.channel.id, msg_id),
+                )
+                conn.commit()
+                conn.close()
+
+                # 直前の固定コピーだけ削除（他の通常メッセージは削除しない）
+                try:
+                    await old_msg.delete()
+                except discord.HTTPException:
+                    pass
+
+            except discord.NotFound:
+                # 直前の固定コピーが見つからない場合はDBから掃除
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+                c.execute(
+                    "DELETE FROM locked_messages WHERE guild_id = ? AND channel_id = ? AND message_id = ?",
+                    (message.guild.id, message.channel.id, msg_id),
+                )
+                conn.commit()
+                conn.close()
 
 
 async def setup(bot):
