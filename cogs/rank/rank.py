@@ -94,9 +94,9 @@ async def generate_rank_card(
     draw = ImageDraw.Draw(img)
 
     # フォントサイズを半分に調整
-    font_big = ImageFont.truetype(FONT_BOLD, 22)
-    font_mid = ImageFont.truetype(FONT_MED, 14)
-    font_small = ImageFont.truetype(FONT_REG, 11)
+    font_big = ImageFont.truetype(FONT_BOLD, 44)
+    font_mid = ImageFont.truetype(FONT_MED, 28)
+    font_small = ImageFont.truetype(FONT_REG, 22)
 
     async with aiohttp.ClientSession() as session:
         # アイコンサイズも半分に
@@ -107,26 +107,26 @@ async def generate_rank_card(
         guild_icon = None
         if interaction.guild.icon:
             guild_icon = circle_crop(
-                await load_icon(session, interaction.guild.icon.url, 180), 180
+                await load_icon(session, interaction.guild.icon.url, 220), 220
             )
 
     # 座標も半分に調整
-    img.paste(user_icon, (90, 100), user_icon)
+    img.paste(user_icon, (70, 80), user_icon)
     if guild_icon:
-        img.paste(guild_icon, (280, 300), guild_icon)
+        img.paste(guild_icon, (270, 320), guild_icon)
 
-    draw.text((400, 40), user.display_name, font=font_big, fill=(0, 0, 0))
-    draw.text((1660, 140), f"{level:02}", font=font_big, fill=(30, 233, 182))
+    draw.text((600, 60), user.display_name, font=font_big, fill=(0, 0, 0))
+    draw.text((1800, 180), f"{level:02}", font=font_big, fill=(30, 233, 182))
 
-    draw.text((560, 460), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((920, 460), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((1320, 460), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
+    draw.text((600, 480), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((970, 480), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
+    draw.text((1370, 480), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
 
     next_exp = total_exp_for_level(level + 1)
     ratio = min(exp / next_exp, 1) if next_exp else 0
 
     # バーの座標とサイズも半分に
-    bar_x, bar_y = 40, 700
+    bar_x, bar_y = 40, 680
     bar_w, bar_h = 1920, 48
 
     draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill=(200, 200, 200))
@@ -135,7 +135,7 @@ async def generate_rank_card(
         fill=(30, 233, 182)
     )
 
-    draw.text((40, 520), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
+    draw.text((40, 580), f"EXP : {exp}/{next_exp}", font=font_small, fill=(0, 0, 0))
 
     os.makedirs("/tmp", exist_ok=True)
     out = f"/tmp/rank_{user.id}.png"
@@ -157,10 +157,9 @@ class Rank(commands.Cog):
         """メッセージ送信時に経験値を付与"""
         if message.author.bot or not message.guild:
             return
-
-        # 経験値を付与 (メッセージ1つにつき5～15 EXP)
+            
         import random
-        gained_exp = random.randint(5, 15)
+        gained_exp = 4
 
         with sqlite3.connect(DB_PATH) as con:
             cur = con.cursor()
