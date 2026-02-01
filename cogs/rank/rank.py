@@ -208,6 +208,10 @@ class Rank(commands.Cog):
 
             notify_ch = guild.get_channel(RANK_NOTIFICATION_CHANNEL_ID)
 
+            if notify_ch is None:
+                print(f"エラー: チャンネルID {RANK_NOTIFICATION_CHANNEL_ID} が見つかりません")
+        return
+
             # レベルアップした場合
             if new_level > old_level:
                 # レベルを更新
@@ -224,8 +228,13 @@ class Rank(commands.Cog):
                         await notify_ch.send(
                             f"🎉 {message.author.mention} がレベルアップしました！ **Lv.{old_level}** → **Lv.{new_level}**"
                         )
+                        print(f"レベルアップ通知送信成功: {message.author.name} Lv.{new_level}")
+                    except discord.Forbidden:
+                        print(f"エラー: チャンネル {notify_ch.name} への送信権限がありません")
+                    except discord.HTTPException as e:
+                        print(f"HTTPエラー: {e}")
                     except Exception as e:
-                        print(f"レベルアップ通知エラー: {e}")
+                        print(f"レベルアップ通知エラー: {type(e).__name__}: {e}")
 
     @rank.command(name="show", description="ランクを表示")
     async def rank_show(
