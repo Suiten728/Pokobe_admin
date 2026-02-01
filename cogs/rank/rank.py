@@ -17,6 +17,7 @@ from PIL import Image, ImageDraw, ImageFont
 # ENV
 # =====================
 load_dotenv("ci/.env")
+RANK_NOTIFICATION_CHANNEL_ID = int(os.getenv("RANK_NOTIFICATION_CHANNEL_ID"))
 
 DB_PATH = "data/rank/rank.db"
 RANK_BG_PATH = "assets/rankbg/rank_bg.png"
@@ -24,6 +25,21 @@ RANK_BG_PATH = "assets/rankbg/rank_bg.png"
 FONT_BOLD = "assets/font/NotoSansJP-Bold.ttf"
 FONT_MED  = "assets/font/NotoSansJP-Medium.ttf"
 FONT_REG  = "assets/font/NotoSansJP-Regular.ttf"
+
+# =====================
+# RANK ROLE TABLE
+# =====================
+RANK_ROLES = {
+    1: "🔰｜見習い訓練兵",
+    5: "🌸｜慣れてきた隊士",
+    10: "🌱｜馴染んできた隊士",
+    20: "🛡｜一人前の隊士",
+    30: "⚔｜リラックスした隊士",
+    40: "🏅｜すべてを熟知している隊士",
+    50: "👑｜凄腕のベテラン隊士",
+    75: "🌟｜戦場を生き抜いた隊士",
+    100: "👑｜熟練した隊長",
+}
 
 # =====================
 # DB INIT
@@ -94,9 +110,9 @@ async def generate_rank_card(
     draw = ImageDraw.Draw(img)
 
     # フォントサイズを半分に調整
-    font_big = ImageFont.truetype(FONT_BOLD, 44)
-    font_mid = ImageFont.truetype(FONT_MED, 28)
-    font_small = ImageFont.truetype(FONT_REG, 22)
+    font_big = ImageFont.truetype(FONT_BOLD, 100)
+    font_mid = ImageFont.truetype(FONT_MED, 60)
+    font_small = ImageFont.truetype(FONT_REG, 45)
 
     async with aiohttp.ClientSession() as session:
         # アイコンサイズも半分に
@@ -111,9 +127,9 @@ async def generate_rank_card(
             )
 
     # 座標も半分に調整
-    img.paste(user_icon, (70, 80), user_icon)
+    img.paste(user_icon, (50, 60), user_icon)
     if guild_icon:
-        img.paste(guild_icon, (270, 320), guild_icon)
+        img.paste(guild_icon, (260, 300), guild_icon)
 
     draw.text((600, 60), user.display_name, font=font_big, fill=(0, 0, 0))
     draw.text((1800, 180), f"{level:02}", font=font_big, fill=(30, 233, 182))
@@ -127,7 +143,7 @@ async def generate_rank_card(
 
     # バーの座標とサイズも半分に
     bar_x, bar_y = 40, 680
-    bar_w, bar_h = 1920, 48
+    bar_w, bar_h = 1920, 54
 
     draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill=(200, 200, 200))
     draw.rectangle(
@@ -190,6 +206,8 @@ class Rank(commands.Cog):
             new_exp = old_exp + gained_exp
             new_level = calc_level(new_exp)
 
+            notify_ch = guild.get_channel(RANK_NOTIFICATION_CHANNEL_ID)
+
             # レベルアップした場合
             if new_level > old_level:
                 # レベルを更新
@@ -203,7 +221,7 @@ class Rank(commands.Cog):
 
                 if mention_enabled:
                     try:
-                        await message.channel.send(
+                        await notify_ch.send(
                             f"🎉 {message.author.mention} がレベルアップしました！ **Lv.{old_level}** → **Lv.{new_level}**"
                         )
                     except Exception as e:
@@ -317,7 +335,6 @@ class Rank(commands.Cog):
             f"レベルアップ時のメンションを{status}にしました。",
             ephemeral=True
         )
-
 
 
 # =====================
