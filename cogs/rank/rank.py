@@ -210,7 +210,7 @@ class Rank(commands.Cog):
 
             if notify_ch is None:
                 print(f"エラー: チャンネルID {RANK_NOTIFICATION_CHANNEL_ID} が見つかりません")
-        return
+                return
 
             # レベルアップした場合
             if new_level > old_level:
