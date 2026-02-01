@@ -80,14 +80,20 @@ class LockMessage(commands.Cog):
 
         channel_key = (message.guild.id, message.channel.id)
 
-        # Botが送信した場合は2秒待つ
-        if message.author.bot:
+        # このBot自身が送信した場合は2秒待つ
+        if message.author.id == self.bot.user.id:
             await asyncio.sleep(2)
             # 待機後、このメッセージが自分が送信した固定メッセージかチェック
             if channel_key in self.last_sent_message_id:
                 if message.id == self.last_sent_message_id[channel_key]:
                     # 自分が送信した固定メッセージなので何もしない
                     return
+        # 他のBotが送信した場合も2秒待つ（リクエスト衝突防止）
+        elif message.author.bot:
+            await asyncio.sleep(2)
+        # ユーザーが送信した場合は1秒待つ（スパム対策）
+        else:
+            await asyncio.sleep(1)
 
         # このギルド・チャンネルで固定対象があるかを取得
         conn = sqlite3.connect(DB_PATH)
@@ -117,7 +123,16 @@ class LockMessage(commands.Cog):
                         color=discord.Color.blue()
                     )
 
-                # 新しい埋め込みメッセージを最下部に送信（content/添付は送らない）
+                # 古いメッセージを先に削除（確実に削除してから送信）
+                try:
+                    await old_msg.delete()
+                except discord.HTTPException:
+                    pass
+
+                # 削除後、少し待ってから新しいメッセージを送信
+                await asyncio.sleep(0.3)
+
+                # 新しい埋め込みメッセージを最下部に送信
                 new_msg = await message.channel.send(embed=embed)
 
                 # このメッセージIDを記録（次回のチェック用）
@@ -132,12 +147,6 @@ class LockMessage(commands.Cog):
                 )
                 conn.commit()
                 conn.close()
-
-                # 直前の固定コピーだけ削除（他の通常メッセージは削除しない）
-                try:
-                    await old_msg.delete()
-                except discord.HTTPException:
-                    pass
 
             except discord.NotFound:
                 # 直前の固定コピーが見つからない場合はDBから掃除
