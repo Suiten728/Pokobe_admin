@@ -96,9 +96,9 @@ class VoiceRoomManager(commands.Cog):
             description=f"部屋: **{voice.name}**",
             color=0x00AAFF
         )
-        emb.add_field(name="🖊 名前変更", value="VCの名前を変更できます", inline=False)
-        emb.add_field(name="👤 人数制限", value="0で無制限", inline=False)
-        emb.add_field(name="🔐 公開/非公開", value="VCの表示切替", inline=False)
+        emb.add_field(name="🖊 名前変更", value="VCの名前を変更できます！", inline=False)
+        emb.add_field(name="👤 人数制限", value="最大人数を設定できます！0に設定すると無制限になります。", inline=False)
+        emb.add_field(name="🔐 公開/非公開", value="他のユーザーからVCが見えるかを変更できます！", inline=False)
         return emb
 
     # -----------------------------
