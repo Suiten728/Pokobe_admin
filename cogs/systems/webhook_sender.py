@@ -13,14 +13,13 @@ user_sessions = {}
 
 class WebhookSendView(discord.ui.View):
     """送信確認用のView"""
-    def __init__(self, user_id: int, message_id: int, channel_id: int, webhook_url: str, webhook_info: dict, messages_to_delete: list):
+    def __init__(self, user_id: int, message_id: int, webhook_url: str, webhook_info: dict, confirm_message):
         super().__init__(timeout=60)
         self.user_id = user_id
         self.message_id = message_id
-        self.channel_id = channel_id
         self.webhook_url = webhook_url
         self.webhook_info = webhook_info
-        self.messages_to_delete = messages_to_delete
+        self.confirm_message = confirm_message
         self.value = None
 
     @discord.ui.button(label="はい", style=discord.ButtonStyle.green)
@@ -30,9 +29,6 @@ class WebhookSendView(discord.ui.View):
             return
 
         await interaction.response.defer()
-        
-        # 確認メッセージも削除リストに追加
-        self.messages_to_delete.append(interaction.message)
         
         # メッセージを取得
         try:
@@ -48,31 +44,16 @@ class WebhookSendView(discord.ui.View):
             
             if not message:
                 await interaction.followup.send("❌ 指定されたメッセージが見つかりませんでした。", ephemeral=True)
-                # メッセージを削除
-                await self.delete_messages()
+                # 確認メッセージを削除
+                try:
+                    await self.confirm_message.delete()
+                except:
+                    pass
                 self.stop()
                 return
             
-            # Web Hookのチャンネルを変更してから送信
+            # Web Hookで送信（チャンネル変更なし）
             async with aiohttp.ClientSession() as session:
-                # Web Hookのチャンネルを変更
-                webhook_id = self.webhook_url.split('/')[-2]
-                webhook_token = self.webhook_url.split('/')[-1]
-                
-                # Web Hookの情報を更新（チャンネルを変更）
-                async with session.patch(
-                    f"https://discord.com/api/v10/webhooks/{webhook_id}",
-                    json={"channel_id": str(self.channel_id)},
-                    headers={"Authorization": f"Bot {interaction.client.http.token}"}
-                ) as resp:
-                    if resp.status != 200:
-                        await interaction.followup.send("❌ Web Hookのチャンネル変更に失敗しました。", ephemeral=True)
-                        # メッセージを削除
-                        await self.delete_messages()
-                        self.stop()
-                        return
-                
-                # Web Hookで送信
                 webhook = discord.Webhook.from_url(self.webhook_url, session=session)
                 
                 # 添付ファイルの処理
@@ -94,33 +75,36 @@ class WebhookSendView(discord.ui.View):
             
             await interaction.followup.send("✅ メッセージを送信しました!", ephemeral=True)
             
-            # メッセージを削除
-            await self.delete_messages()
+            # 確認メッセージを削除
+            try:
+                await self.confirm_message.delete()
+            except:
+                pass
             
         except discord.NotFound:
             await interaction.followup.send("❌ 指定されたメッセージが見つかりませんでした。", ephemeral=True)
-            await self.delete_messages()
+            try:
+                await self.confirm_message.delete()
+            except:
+                pass
         except discord.Forbidden:
             await interaction.followup.send("❌ メッセージの取得またはWeb Hookの送信に失敗しました。権限を確認してください。", ephemeral=True)
-            await self.delete_messages()
+            try:
+                await self.confirm_message.delete()
+            except:
+                pass
         except Exception as e:
             await interaction.followup.send(f"❌ エラーが発生しました: {str(e)}", ephemeral=True)
-            await self.delete_messages()
+            try:
+                await self.confirm_message.delete()
+            except:
+                pass
         
         # セッションをクリア
         if self.user_id in user_sessions:
             del user_sessions[self.user_id]
         
         self.stop()
-    
-    async def delete_messages(self):
-        """メッセージを削除"""
-        for msg in self.messages_to_delete:
-            try:
-                await msg.delete()
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                # メッセージが既に削除されている、または権限がない場合は無視
-                pass
 
     @discord.ui.button(label="いいえ", style=discord.ButtonStyle.red)
     async def no_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -130,11 +114,11 @@ class WebhookSendView(discord.ui.View):
 
         await interaction.response.send_message("❌ 送信をキャンセルしました。", ephemeral=True)
         
-        # 確認メッセージも削除リストに追加
-        self.messages_to_delete.append(interaction.message)
-        
-        # メッセージを削除
-        await self.delete_messages()
+        # 確認メッセージを削除
+        try:
+            await self.confirm_message.delete()
+        except:
+            pass
         
         # セッションをクリア
         if self.user_id in user_sessions:
@@ -158,7 +142,6 @@ class WebhookSenderCog(commands.Cog):
         try:
             webhook_id = self.webhook_url.split('/')[-2]
             async with aiohttp.ClientSession() as session:
-                webhook = discord.Webhook.from_url(self.webhook_url, session=session)
                 # Web Hook情報を取得
                 async with session.get(f"https://discord.com/api/v10/webhooks/{webhook_id}") as resp:
                     if resp.status == 200:
@@ -201,14 +184,20 @@ class WebhookSenderCog(commands.Cog):
             if user_id in user_sessions:
                 del user_sessions[user_id]
             
+            # ユーザーのメッセージをすぐに削除
+            try:
+                await message.delete()
+            except:
+                pass
+            
             user_sessions[user_id] = {
                 "step": "waiting_message_id",
-                "channel_id": message.channel.id,
-                "messages_to_delete": [message]  # ユーザーのメッセージも追加
+                "channel_id": message.channel.id
             }
             
             bot_msg = await message.channel.send(f"{message.author.mention} 送信するメッセージIDを送信してください。")
-            user_sessions[user_id]["messages_to_delete"].append(bot_msg)
+            # Botメッセージの参照を保存
+            user_sessions[user_id]["bot_message"] = bot_msg
             return
         
         # セッションが存在しない場合は処理しない
@@ -217,43 +206,45 @@ class WebhookSenderCog(commands.Cog):
         
         session = user_sessions[user_id]
         
-        # ユーザーのメッセージを削除リストに追加
-        session["messages_to_delete"].append(message)
-        
         # メッセージID待機中
         if session["step"] == "waiting_message_id":
             # IDの検証
             if not message.content.isdigit():
+                # ユーザーのメッセージを削除
+                try:
+                    await message.delete()
+                except:
+                    pass
+                
+                # 前のBotメッセージも削除
+                if "bot_message" in session:
+                    try:
+                        await session["bot_message"].delete()
+                    except:
+                        pass
+                
+                # エラーメッセージを送信
                 error_msg = await message.channel.send("❌ 無効なメッセージIDです。数字のみで構成されたIDを送信してください。")
-                session["messages_to_delete"].append(error_msg)
+                
+                # 新しいBotメッセージを保存
+                session["bot_message"] = error_msg
                 return
+            
+            # ユーザーのメッセージを削除
+            try:
+                await message.delete()
+            except:
+                pass
+            
+            # 前のBotメッセージも削除
+            if "bot_message" in session:
+                try:
+                    await session["bot_message"].delete()
+                except:
+                    pass
             
             message_id = int(message.content)
             session["message_id"] = message_id
-            session["step"] = "waiting_channel_id"
-            
-            bot_msg = await message.channel.send(f"{message.author.mention} 送信するチャンネルIDを送信してください。")
-            session["messages_to_delete"].append(bot_msg)
-            return
-        
-        # チャンネルID待機中
-        if session["step"] == "waiting_channel_id":
-            # IDの検証
-            if not message.content.isdigit():
-                error_msg = await message.channel.send("❌ 無効なチャンネルIDです。数字のみで構成されたIDを送信してください。")
-                session["messages_to_delete"].append(error_msg)
-                return
-            
-            channel_id = int(message.content)
-            
-            # チャンネルの存在確認
-            target_channel = self.bot.get_channel(channel_id)
-            if not target_channel:
-                error_msg = await message.channel.send("❌ 指定されたチャンネルが見つかりません。チャンネルIDを確認してください。")
-                session["messages_to_delete"].append(error_msg)
-                return
-            
-            # セッションの状態を更新して、これ以上メッセージを処理しないようにする
             session["step"] = "confirming"
             
             # Web Hookの情報を取得
@@ -267,25 +258,32 @@ class WebhookSenderCog(commands.Cog):
             else:
                 webhook_avatar_url = "なし"
             
+            # Web Hookの送信先チャンネルを取得
+            webhook_channel_id = webhook_info.get("channel_id")
+            webhook_channel = self.bot.get_channel(int(webhook_channel_id)) if webhook_channel_id else None
+            webhook_channel_mention = webhook_channel.mention if webhook_channel else "不明"
+            
             # 確認メッセージ
-            confirm_message = (
+            confirm_message_text = (
                 f"{message.author.mention}\n"
                 f"**以下の内容で送信します。送信しますか？**\n\n"
                 f"📝 **名前:** `{webhook_name}`\n"
                 f"🖼️ **アバター:** {webhook_avatar_url}\n"
-                f"📢 **送信先チャンネル:** {target_channel.mention}\n"
+                f"📢 **送信先チャンネル:** {webhook_channel_mention}\n"
             )
+            
+            confirm_msg = await message.channel.send(confirm_message_text)
             
             view = WebhookSendView(
                 user_id=user_id,
                 message_id=session["message_id"],
-                channel_id=channel_id,
                 webhook_url=self.webhook_url,
                 webhook_info=webhook_info,
-                messages_to_delete=session["messages_to_delete"]
+                confirm_message=confirm_msg
             )
             
-            await message.channel.send(confirm_message, view=view)
+            # Viewを確認メッセージに追加
+            await confirm_msg.edit(view=view)
 
 
 async def setup(bot: commands.Bot):
