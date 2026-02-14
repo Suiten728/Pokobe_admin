@@ -152,7 +152,7 @@ class WebhookSenderCog(commands.Cog):
         except Exception as e:
             print(f"Web Hook情報の取得に失敗: {e}")
         
-        return {"name": "Unknown", "avatar": None, "channel_id": None}
+        return {"name": "Unknown", "avatar_url": None, "channel_id": None}
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -245,43 +245,50 @@ class WebhookSenderCog(commands.Cog):
             session["message_id"] = message_id
             session["step"] = "confirming"
             
-            # Web Hookの情報を取得
-            webhook_info = await self.get_webhook_info()
-            webhook_name = webhook_info["name"]
-            
-            # アバターURLの構築
-            if webhook_info["avatar"]:
-                webhook_id = self.webhook_url.split('/')[-2]
-                webhook_avatar_url = f"https://cdn.discordapp.com/avatars/{webhook_id}/{webhook_info['avatar']}.png"
-            else:
-                webhook_avatar_url = "なし"
-            
-            # Web Hookの送信先チャンネルを取得
-            webhook_channel_id = webhook_info.get("channel_id")
-            webhook_channel = self.bot.get_channel(int(webhook_channel_id)) if webhook_channel_id else None
-            webhook_channel_mention = webhook_channel.mention if webhook_channel else "不明"
-            
-            # 確認メッセージ
-            confirm_message_text = (
-                f"{message.author.mention}\n"
-                f"**以下の内容で送信します。送信しますか？**\n\n"
-                f"📝 **名前:** `{webhook_name}`\n"
-                f"🖼️ **アバター:** {webhook_avatar_url}\n"
-                f"📢 **送信先チャンネル:** {webhook_channel_mention}\n"
-            )
-            
-            confirm_msg = await message.channel.send(confirm_message_text)
-            
-            view = WebhookSendView(
-                user_id=user_id,
-                message_id=session["message_id"],
-                webhook_url=self.webhook_url,
-                webhook_info=webhook_info,
-                confirm_message=confirm_msg
-            )
-            
-            # Viewを確認メッセージに追加
-            await confirm_msg.edit(view=view)
+            try:
+                # Web Hookの情報を取得
+                webhook_info = await self.get_webhook_info()
+                webhook_name = webhook_info["name"]
+                webhook_avatar_url = webhook_info["avatar_url"] or "なし"
+                
+                # Web Hookの送信先チャンネルを取得
+                webhook_channel_id = webhook_info.get("channel_id")
+                if webhook_channel_id:
+                    webhook_channel = self.bot.get_channel(webhook_channel_id)
+                    webhook_channel_mention = webhook_channel.mention if webhook_channel else f"<#{webhook_channel_id}>"
+                else:
+                    webhook_channel_mention = "不明"
+                
+                # 確認メッセージ
+                confirm_message_text = (
+                    f"{message.author.mention}\n"
+                    f"**以下の内容で送信します。送信しますか？**\n\n"
+                    f"📝 **名前:** `{webhook_name}`\n"
+                    f"🖼️ **アバター:** {webhook_avatar_url}\n"
+                    f"📢 **送信先チャンネル:** {webhook_channel_mention}\n"
+                )
+                
+                confirm_msg = await message.channel.send(confirm_message_text)
+                
+                view = WebhookSendView(
+                    user_id=user_id,
+                    message_id=session["message_id"],
+                    webhook_url=self.webhook_url,
+                    webhook_info=webhook_info,
+                    confirm_message=confirm_msg
+                )
+                
+                # Viewを確認メッセージに追加
+                await confirm_msg.edit(view=view)
+                
+            except Exception as e:
+                # エラーが発生した場合
+                error_msg = await message.channel.send(f"❌ エラーが発生しました: {str(e)}\n\nWeb Hook URLが正しく設定されているか確認してください。")
+                print(f"確認メッセージ送信エラー: {e}")
+                # セッションをクリア
+                if user_id in user_sessions:
+                    del user_sessions[user_id]
+                return
 
 
 async def setup(bot: commands.Bot):
