@@ -140,17 +140,15 @@ class WebhookSenderCog(commands.Cog):
     async def get_webhook_info(self) -> dict:
         """Web Hookの情報を取得"""
         try:
-            webhook_id = self.webhook_url.split('/')[-2]
             async with aiohttp.ClientSession() as session:
-                # Web Hook情報を取得
-                async with session.get(f"https://discord.com/api/v10/webhooks/{webhook_id}") as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return {
-                            "name": data.get("name", "Unknown"),
-                            "avatar": data.get("avatar"),
-                            "channel_id": data.get("channel_id")
-                        }
+                webhook = discord.Webhook.from_url(self.webhook_url, session=session)
+                webhook_data = await webhook.fetch()
+                
+                return {
+                    "name": webhook_data.name or "Unknown",
+                    "avatar_url": webhook_data.display_avatar.url if webhook_data.avatar else None,
+                    "channel_id": webhook_data.channel_id
+                }
         except Exception as e:
             print(f"Web Hook情報の取得に失敗: {e}")
         
