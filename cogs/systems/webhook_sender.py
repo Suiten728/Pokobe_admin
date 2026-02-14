@@ -135,7 +135,7 @@ class WebhookSenderCog(commands.Cog):
         self.webhook_url = SENDER_WEBHOOK_URL
         
         if not self.webhook_url:
-            print("⚠️ 警告: SENDER_WEBHOOK_URLが.envファイルに設定されていません。")
+            print("⚠️ 警告: WEBHOOK_URLが.envファイルに設定されていません。")
 
     async def get_webhook_info(self) -> dict:
         """Web Hookの情報を取得"""
