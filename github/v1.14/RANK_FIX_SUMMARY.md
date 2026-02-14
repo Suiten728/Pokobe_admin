@@ -139,6 +139,3 @@ python3 bot.py
 - `cogs/rank/rank.py` - ランク機能の本体（修正済み）
 - `requirements.txt` - 依存パッケージリスト（新規作成）
 - `RANK_FIX_SUMMARY.md` - 本ドキュメント（新規作成）
-
----
-修正日: 2026-01-31

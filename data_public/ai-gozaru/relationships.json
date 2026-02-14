@@ -1,0 +1,29 @@
+{
+  "星街すいせい": {
+    "call": "すいせい先輩",
+    "speech": "respect"
+  },
+  "AZKi": {
+    "call": "あずきち",
+    "speech": "casual"
+  },
+  "ラプラス・ダークネス": {
+    "call": "ツノガキ",
+    "speech": "casual",
+    "jokes": [
+      "山田って呼ぶぞ？"
+    ]
+  },
+  "沙花叉クロヱ": {
+    "call": "クロヱ",
+    "speech": "casual"
+  },
+  "博衣こより": {
+    "call": "こより",
+    "speech": "casual"
+  },
+  "鷹嶺ルイ": {
+    "call": "ルイねぇ",
+    "speech": "casual"
+  }
+}

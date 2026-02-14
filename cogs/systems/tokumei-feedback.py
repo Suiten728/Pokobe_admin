@@ -9,7 +9,7 @@ import random
 
 load_dotenv("ci/.env")
 
-TOKUMEI_WEBHOOK1_URL = os.getenv("TOKUMEI_WEBHOOK1_URL")
+TOKUMEI_WEBHOOK1_URL = os.getenv("TOKUMEI_WEBHOOK_URL")
 
 DATA_FILE = "data/anonymous_users.json"
 PANEL_MESSAGE_FILE = "data/anonymous_panel_message.json"
