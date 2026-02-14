@@ -56,22 +56,27 @@ class WebhookSendView(discord.ui.View):
             async with aiohttp.ClientSession() as session:
                 webhook = discord.Webhook.from_url(self.webhook_url, session=session)
                 
+                # 送信用の引数を準備
+                send_kwargs = {}
+                
+                # コンテンツの処理
+                if message.content:
+                    send_kwargs["content"] = message.content
+                
                 # 添付ファイルの処理
-                files = []
                 if message.attachments:
+                    files = []
                     for attachment in message.attachments:
                         file_data = await attachment.read()
                         files.append(discord.File(fp=discord.utils.BytesIO(file_data), filename=attachment.filename))
+                    send_kwargs["files"] = files
                 
                 # Embedの処理
-                embeds = message.embeds if message.embeds else None
+                if message.embeds:
+                    send_kwargs["embeds"] = message.embeds
                 
                 # メッセージ送信（usernameとavatar_urlは指定しない）
-                await webhook.send(
-                    content=message.content if message.content else None,
-                    embeds=embeds,
-                    files=files if files else None,
-                )
+                await webhook.send(**send_kwargs)
             
             await interaction.followup.send("✅ メッセージを送信しました!", ephemeral=True)
             
