@@ -13,14 +13,50 @@ user_sessions = {}
 
 class WebhookSendView(discord.ui.View):
     """送信確認用のView"""
-    def __init__(self, user_id: int, message_id: int, webhook_url: str, webhook_info: dict, confirm_message):
-        super().__init__(timeout=60)
+    def __init__(self, user_id: int, message_id: int, webhook_url: str, webhook_info: dict, confirm_message, preview_content: str):
+        super().__init__(timeout=300)  # 5分に延長
         self.user_id = user_id
         self.message_id = message_id
         self.webhook_url = webhook_url
         self.webhook_info = webhook_info
         self.confirm_message = confirm_message
+        self.preview_content = preview_content
+        self.logs = []
         self.value = None
+    
+    def add_log(self, log_message: str):
+        """ログを追加"""
+        self.logs.append(log_message)
+    
+    async def update_message(self):
+        """確認メッセージを更新"""
+        try:
+            webhook_name = self.webhook_info["name"]
+            webhook_avatar_url = self.webhook_info["avatar_url"] or "なし"
+            webhook_channel_id = self.webhook_info.get("channel_id")
+            
+            if webhook_channel_id:
+                webhook_channel_mention = f"<#{webhook_channel_id}>"
+            else:
+                webhook_channel_mention = "不明"
+            
+            # ログを結合
+            log_text = "\n".join(self.logs) if self.logs else "待機中..."
+            
+            updated_message = (
+                f"<@{self.user_id}>\n"
+                f"**以下の内容で送信します。送信しますか？**\n\n"
+                f"📝 **名前:** `{webhook_name}`\n"
+                f"🖼️ **アバター:** {webhook_avatar_url}\n"
+                f"📢 **送信先チャンネル:** {webhook_channel_mention}\n\n"
+                f"**送信されるメッセージ:**\n"
+                f"{self.preview_content}\n\n"
+                f"```\n{log_text}\n```"
+            )
+            
+            await self.confirm_message.edit(content=updated_message, view=self)
+        except Exception as e:
+            print(f"メッセージ更新エラー: {e}")
 
     @discord.ui.button(label="はい", style=discord.ButtonStyle.green)
     async def yes_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -30,10 +66,17 @@ class WebhookSendView(discord.ui.View):
 
         await interaction.response.defer()
         
+        # ボタンを無効化
+        for item in self.children:
+            item.disabled = True
+        await self.confirm_message.edit(view=self)
+        
         # メッセージを取得
         try:
-            # メッセージIDからメッセージを取得
-            print(f"[DEBUG] メッセージID {self.message_id} を検索中...")
+            # ログ: 検索開始
+            self.add_log(f"[DEBUG] メッセージID {self.message_id} を検索中...")
+            await self.update_message()
+            
             message = None
             searched_channels = 0
             searched_threads = 0
@@ -45,12 +88,12 @@ class WebhookSendView(discord.ui.View):
                     searched_channels += 1
                     try:
                         message = await channel.fetch_message(self.message_id)
-                        print(f"[DEBUG] メッセージを発見: チャンネル {channel.name} (ID: {channel.id})")
+                        self.add_log(f"[DEBUG] メッセージを発見: チャンネル {channel.name} (ID: {channel.id})")
+                        await self.update_message()
                         break
                     except discord.NotFound:
                         continue
                     except discord.Forbidden:
-                        print(f"[DEBUG] アクセス拒否: チャンネル {channel.name} (ID: {channel.id})")
                         continue
                 
                 if message:
@@ -61,12 +104,12 @@ class WebhookSendView(discord.ui.View):
                     searched_threads += 1
                     try:
                         message = await thread.fetch_message(self.message_id)
-                        print(f"[DEBUG] メッセージを発見: スレッド {thread.name} (ID: {thread.id})")
+                        self.add_log(f"[DEBUG] メッセージを発見: スレッド {thread.name} (ID: {thread.id})")
+                        await self.update_message()
                         break
                     except discord.NotFound:
                         continue
                     except discord.Forbidden:
-                        print(f"[DEBUG] アクセス拒否: スレッド {thread.name} (ID: {thread.id})")
                         continue
                 
                 if message:
@@ -74,19 +117,18 @@ class WebhookSendView(discord.ui.View):
                 
                 # ForumChannel（フォーラムチャンネル内のスレッド）
                 for channel in guild.forums:
-                    # アクティブなスレッドを取得
                     try:
                         active_threads = channel.threads
                         for thread in active_threads:
                             searched_threads += 1
                             try:
                                 message = await thread.fetch_message(self.message_id)
-                                print(f"[DEBUG] メッセージを発見: フォーラムスレッド {thread.name} (ID: {thread.id})")
+                                self.add_log(f"[DEBUG] メッセージを発見: フォーラムスレッド {thread.name} (ID: {thread.id})")
+                                await self.update_message()
                                 break
                             except discord.NotFound:
                                 continue
                             except discord.Forbidden:
-                                print(f"[DEBUG] アクセス拒否: フォーラムスレッド {thread.name} (ID: {thread.id})")
                                 continue
                     except:
                         continue
@@ -97,27 +139,20 @@ class WebhookSendView(discord.ui.View):
                 if message:
                     break
             
-            print(f"[DEBUG] {searched_channels} 個のチャンネル、{searched_threads} 個のスレッドを検索しました")
+            # ログ: 検索結果
+            self.add_log(f"[DEBUG] {searched_channels} 個のチャンネル、{searched_threads} 個のスレッドを検索しました")
+            await self.update_message()
             
             if not message:
-                print(f"[DEBUG] メッセージID {self.message_id} が見つかりませんでした")
-                await interaction.followup.send(
-                    "❌ 指定されたメッセージが見つかりませんでした。\n\n"
-                    "**確認事項:**\n"
-                    "• メッセージIDが正しいか確認してください\n"
-                    "• Botがそのチャンネル/スレッドにアクセスできるか確認してください\n"
-                    "• フォーラムのスレッドの場合、スレッドがアーカイブされていないか確認してください",
-                    ephemeral=True
-                )
-                # 確認メッセージを削除
-                try:
-                    await self.confirm_message.delete()
-                except:
-                    pass
+                self.add_log(f"[ERROR] メッセージID {self.message_id} が見つかりませんでした")
+                await self.update_message()
                 self.stop()
                 return
             
-            # Web Hookで送信（チャンネル変更なし）
+            # Web Hookで送信
+            self.add_log("[DEBUG] Web Hookで送信中...")
+            await self.update_message()
+            
             async with aiohttp.ClientSession() as session:
                 webhook = discord.Webhook.from_url(self.webhook_url, session=session)
                 
@@ -140,35 +175,22 @@ class WebhookSendView(discord.ui.View):
                 if message.embeds:
                     send_kwargs["embeds"] = message.embeds
                 
-                # メッセージ送信（usernameとavatar_urlは指定しない）
+                # メッセージ送信
                 await webhook.send(**send_kwargs)
             
-            await interaction.followup.send("✅ メッセージを送信しました!", ephemeral=True)
-            
-            # 確認メッセージを削除
-            try:
-                await self.confirm_message.delete()
-            except:
-                pass
+            # ログ: 送信完了
+            self.add_log("[DEBUG] 送信が完了しました！")
+            await self.update_message()
             
         except discord.NotFound:
-            await interaction.followup.send("❌ 指定されたメッセージが見つかりませんでした。", ephemeral=True)
-            try:
-                await self.confirm_message.delete()
-            except:
-                pass
+            self.add_log("[ERROR] 指定されたメッセージが見つかりませんでした")
+            await self.update_message()
         except discord.Forbidden:
-            await interaction.followup.send("❌ メッセージの取得またはWeb Hookの送信に失敗しました。権限を確認してください。", ephemeral=True)
-            try:
-                await self.confirm_message.delete()
-            except:
-                pass
+            self.add_log("[ERROR] メッセージの取得またはWeb Hookの送信に失敗しました")
+            await self.update_message()
         except Exception as e:
-            await interaction.followup.send(f"❌ エラーが発生しました: {str(e)}", ephemeral=True)
-            try:
-                await self.confirm_message.delete()
-            except:
-                pass
+            self.add_log(f"[ERROR] エラーが発生しました: {str(e)}")
+            await self.update_message()
         
         # セッションをクリア
         if self.user_id in user_sessions:
@@ -182,13 +204,15 @@ class WebhookSendView(discord.ui.View):
             await interaction.response.send_message("このボタンはあなたが使用できません。", ephemeral=True)
             return
 
-        await interaction.response.send_message("❌ 送信をキャンセルしました。", ephemeral=True)
+        await interaction.response.defer()
         
-        # 確認メッセージを削除
-        try:
-            await self.confirm_message.delete()
-        except:
-            pass
+        # ボタンを無効化
+        for item in self.children:
+            item.disabled = True
+        
+        # ログ: キャンセル
+        self.add_log("[INFO] 送信がキャンセルされました")
+        await self.update_message()
         
         # セッションをクリア
         if self.user_id in user_sessions:
@@ -316,6 +340,67 @@ class WebhookSenderCog(commands.Cog):
             session["step"] = "confirming"
             
             try:
+                # メッセージのプレビューを取得
+                preview_message = None
+                for guild in self.bot.guilds:
+                    # TextChannel
+                    for channel in guild.text_channels:
+                        try:
+                            preview_message = await channel.fetch_message(message_id)
+                            break
+                        except:
+                            continue
+                    
+                    if preview_message:
+                        break
+                    
+                    # Thread
+                    for thread in guild.threads:
+                        try:
+                            preview_message = await thread.fetch_message(message_id)
+                            break
+                        except:
+                            continue
+                    
+                    if preview_message:
+                        break
+                    
+                    # Forum
+                    for channel in guild.forums:
+                        try:
+                            for thread in channel.threads:
+                                try:
+                                    preview_message = await thread.fetch_message(message_id)
+                                    break
+                                except:
+                                    continue
+                        except:
+                            continue
+                        
+                        if preview_message:
+                            break
+                    
+                    if preview_message:
+                        break
+                
+                # プレビューテキストを作成
+                if preview_message:
+                    preview_content = preview_message.content if preview_message.content else "(コンテンツなし)"
+                    if len(preview_content) > 500:
+                        preview_content = preview_content[:500] + "..."
+                    
+                    # 添付ファイルがある場合
+                    if preview_message.attachments:
+                        preview_content += f"\n📎 添付ファイル: {len(preview_message.attachments)}個"
+                    
+                    # Embedがある場合
+                    if preview_message.embeds:
+                        preview_content += f"\n📋 Embed: {len(preview_message.embeds)}個"
+                    
+                    preview_content = f"> {preview_content.replace(chr(10), chr(10) + '> ')}"
+                else:
+                    preview_content = "> (プレビュー取得失敗)"
+                
                 # Web Hookの情報を取得
                 webhook_info = await self.get_webhook_info()
                 webhook_name = webhook_info["name"]
@@ -335,7 +420,10 @@ class WebhookSenderCog(commands.Cog):
                     f"**以下の内容で送信します。送信しますか？**\n\n"
                     f"📝 **名前:** `{webhook_name}`\n"
                     f"🖼️ **アバター:** {webhook_avatar_url}\n"
-                    f"📢 **送信先チャンネル:** {webhook_channel_mention}\n"
+                    f"📢 **送信先チャンネル:** {webhook_channel_mention}\n\n"
+                    f"**送信されるメッセージ:**\n"
+                    f"{preview_content}\n\n"
+                    f"```\n待機中...\n```"
                 )
                 
                 confirm_msg = await message.channel.send(confirm_message_text)
@@ -345,7 +433,8 @@ class WebhookSenderCog(commands.Cog):
                     message_id=session["message_id"],
                     webhook_url=self.webhook_url,
                     webhook_info=webhook_info,
-                    confirm_message=confirm_msg
+                    confirm_message=confirm_msg,
+                    preview_content=preview_content
                 )
                 
                 # Viewを確認メッセージに追加
