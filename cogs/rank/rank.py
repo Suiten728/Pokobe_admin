@@ -21,7 +21,7 @@ RANK_NOTIFICATION_CHANNEL_ID = int(os.getenv("RANK_NOTIFICATION_CHANNEL_ID"))
 
 DB_PATH = "data/rank/rank.db"
 RANK_BG_PATH = "assets/rankbg/rank_bg.png"
-# rank_bg.png - 2000 × 752 px (4000×1504から半分に縮小)
+# rank_bg.png - 2000 × 752 px 
 FONT_BOLD = "assets/font/NotoSansJP-Bold.ttf"
 FONT_MED  = "assets/font/NotoSansJP-Medium.ttf"
 FONT_REG  = "assets/font/NotoSansJP-Regular.ttf"
@@ -125,12 +125,12 @@ async def generate_rank_card(
             )
 
     # 座標
-    img.paste(user_icon, (40, 60), user_icon)
+    img.paste(user_icon, (37, 52), user_icon)
     if guild_icon:
-        img.paste(guild_icon, (255, 300), guild_icon)
+        img.paste(guild_icon, (255, 305), guild_icon)
 
-    draw.text((520, 60), user.display_name, font=font_big, fill=(0, 0, 0))
-    draw.text((1750, 180), f"{level:02}", font=font_big, fill=(30, 233, 182))
+    draw.text((500, 48), user.display_name, font=font_big, fill=(0, 0, 0))
+    draw.text((1660, 180), f"{level:02}", font=font_big, fill=(30, 233, 182))
 
     draw.text((600, 480), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
     draw.text((970, 480), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
