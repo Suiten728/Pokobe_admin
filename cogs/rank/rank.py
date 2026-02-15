@@ -108,14 +108,12 @@ async def generate_rank_card(
 
     img = Image.open(RANK_BG_PATH).convert("RGBA")
     draw = ImageDraw.Draw(img)
-
-    # フォントサイズを半分に調整
-    font_big = ImageFont.truetype(FONT_BOLD, 100)
-    font_mid = ImageFont.truetype(FONT_MED, 60)
-    font_small = ImageFont.truetype(FONT_REG, 45)
+    
+    font_big = ImageFont.truetype(FONT_BOLD, 115)
+    font_mid = ImageFont.truetype(FONT_MED, 75)
+    font_small = ImageFont.truetype(FONT_REG, 60)
 
     async with aiohttp.ClientSession() as session:
-        # アイコンサイズも半分に
         user_icon = circle_crop(
             await load_icon(session, user.display_avatar.url, 365), 365
         )
@@ -126,22 +124,22 @@ async def generate_rank_card(
                 await load_icon(session, interaction.guild.icon.url, 220), 220
             )
 
-    # 座標も半分に調整
-    img.paste(user_icon, (50, 60), user_icon)
+    # 座標
+    img.paste(user_icon, (40, 60), user_icon)
     if guild_icon:
-        img.paste(guild_icon, (260, 300), guild_icon)
+        img.paste(guild_icon, (255, 300), guild_icon)
 
-    draw.text((600, 60), user.display_name, font=font_big, fill=(0, 0, 0))
-    draw.text((1800, 180), f"{level:02}", font=font_big, fill=(30, 233, 182))
+    draw.text((520, 60), user.display_name, font=font_big, fill=(0, 0, 0))
+    draw.text((1750, 180), f"{level:02}", font=font_big, fill=(30, 233, 182))
 
     draw.text((600, 480), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
     draw.text((970, 480), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((1370, 480), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
+    draw.text((1300, 480), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
 
     next_exp = total_exp_for_level(level + 1)
     ratio = min(exp / next_exp, 1) if next_exp else 0
 
-    # バーの座標とサイズも半分に
+    # バーの座標とサイズ
     bar_x, bar_y = 40, 680
     bar_w, bar_h = 1920, 54
 
