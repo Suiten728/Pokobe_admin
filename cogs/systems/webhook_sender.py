@@ -1,12 +1,14 @@
 import discord
 from discord.ext import commands
 import aiohttp
+import asyncio
 import os
 from dotenv import load_dotenv
 
 # .envファイルを読み込む
 load_dotenv()
 SENDER_WEBHOOK_URL = os.getenv("SENDER_WEBHOOK_URL")
+CM_ROLE_ID = os.getenv("CM_ROLE_ID")
 
 # ユーザーごとのセッション管理
 user_sessions = {}
@@ -14,7 +16,7 @@ user_sessions = {}
 class WebhookSendView(discord.ui.View):
     """送信確認用のView"""
     def __init__(self, user_id: int, message_id: int, webhook_url: str, webhook_info: dict, confirm_message, preview_content: str):
-        super().__init__(timeout=300)  # 5分に延長
+        super().__init__(timeout=300)  # 5分
         self.user_id = user_id
         self.message_id = message_id
         self.webhook_url = webhook_url
@@ -227,9 +229,13 @@ class WebhookSenderCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.webhook_url = SENDER_WEBHOOK_URL
+        self.cm_role_id = int(CM_ROLE_ID) if CM_ROLE_ID and CM_ROLE_ID.isdigit() else None
         
         if not self.webhook_url:
             print("⚠️ 警告: SENDER_WEBHOOK_URLが.envファイルに設定されていません。")
+        
+        if not self.cm_role_id:
+            print("⚠️ 警告: CM_ROLE_IDが.envファイルに設定されていません。権限チェックは無効です。")
 
     async def get_webhook_info(self) -> dict:
         """Web Hookの情報を取得"""
@@ -272,6 +278,17 @@ class WebhookSenderCog(commands.Cog):
         
         # 新しいセッション開始
         if message.content == "WH送信":
+            # 権限チェック
+            if self.cm_role_id:
+                # CM_ROLE_IDが設定されている場合のみチェック
+                if not any(role.id == self.cm_role_id for role in message.author.roles):
+                    # 権限がない場合
+                    try:
+                        await message.delete()
+                    except:
+                        pass
+                    return
+            
             # 既存のセッションがある場合はクリア
             if user_id in user_sessions:
                 del user_sessions[user_id]
@@ -338,6 +355,9 @@ class WebhookSenderCog(commands.Cog):
             message_id = int(message.content)
             session["message_id"] = message_id
             session["step"] = "confirming"
+            
+            # 処理中メッセージを送信
+            processing_msg = await message.channel.send("処理中...")
             
             try:
                 # メッセージのプレビューを取得
@@ -414,6 +434,10 @@ class WebhookSenderCog(commands.Cog):
                 else:
                     webhook_channel_mention = "不明"
                 
+                # 処理完了メッセージを表示（0.5秒）
+                await processing_msg.edit(content="✅処理完了！")
+                await asyncio.sleep(0.5)
+                
                 # 確認メッセージ
                 confirm_message_text = (
                     f"{message.author.mention}\n"
@@ -426,23 +450,24 @@ class WebhookSenderCog(commands.Cog):
                     f"```\n待機中...\n```"
                 )
                 
-                confirm_msg = await message.channel.send(confirm_message_text)
+                # 処理中メッセージを確認画面に変更
+                await processing_msg.edit(content=confirm_message_text)
                 
                 view = WebhookSendView(
                     user_id=user_id,
                     message_id=session["message_id"],
                     webhook_url=self.webhook_url,
                     webhook_info=webhook_info,
-                    confirm_message=confirm_msg,
+                    confirm_message=processing_msg,
                     preview_content=preview_content
                 )
                 
                 # Viewを確認メッセージに追加
-                await confirm_msg.edit(view=view)
+                await processing_msg.edit(view=view)
                 
             except Exception as e:
                 # エラーが発生した場合
-                error_msg = await message.channel.send(f"❌ エラーが発生しました: {str(e)}\n\nWeb Hook URLが正しく設定されているか確認してください。")
+                await processing_msg.edit(content=f"❌ エラーが発生しました: {str(e)}\n\nWeb Hook URLが正しく設定されているか確認してください。")
                 print(f"確認メッセージ送信エラー: {e}")
                 # セッションをクリア
                 if user_id in user_sessions:

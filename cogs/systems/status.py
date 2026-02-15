@@ -1,11 +1,11 @@
 import discord
 from discord.ext import commands, tasks
 import asyncio
-import random
 
 class Status(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.current_index = 0  # 現在のステータスインデックス
         self.update_status.start()  # 起動時にループ開始
 
     def cog_unload(self):
@@ -16,15 +16,27 @@ class Status(commands.Cog):
         await self.bot.wait_until_ready()
 
         ping = round(self.bot.latency * 1000)
+        member_count = sum(guild.member_count for guild in self.bot.guilds)
 
-        # ランダムにステータス切り替え（例：2パターン）
-        statuses = [
-            f"ver 1.13.8┃ping:{ping}ms",
-            f"Powered by Suiten┃ping:{ping}ms",
+        # ステータスを順番に定義
+        dynamic_presences = [
+            {"type": "Playing", "name": "ver 1.14.0 beta", "state": "Powered by Suiten"},
+            {"type": "Playing", "name": f"ping: {ping}ms", "state": f"{len(self.bot.users)} users"},
+            {"type": "Watching", "name": f"{member_count}人が参加中！", "state": "あなたと作る深い絆"},
         ]
 
-        activity = discord.Game(name=random.choice(statuses))
-        await self.bot.change_presence(activity=activity)
+        # 現在のステータスを取得
+        current_presence = dynamic_presences[self.current_index]
+
+        activity = discord.Activity(
+            type=discord.ActivityType.playing,
+            name=current_presence["name"],
+            state=current_presence["state"]
+        )
+        await self.bot.change_presence(activity=activity, status=discord.Status.online)
+
+        # 次のインデックスへ（最後まで行ったら0に戻る）
+        self.current_index = (self.current_index + 1) % len(dynamic_presences)
 
     @update_status.before_loop
     async def before_status(self):

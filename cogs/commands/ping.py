@@ -1,8 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
-import os
-
 
 # レイテンシー分類関数
 def get_latency_status(latency_ms: int):

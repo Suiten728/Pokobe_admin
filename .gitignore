@@ -1,9 +1,10 @@
 .env
-
 venv
 venv/*
 data/
 data/*
+local
+local/*
 SSP/codes/
 SSP/codes/*
 __pycache__/
