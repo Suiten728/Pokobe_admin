@@ -33,17 +33,35 @@ class WebhookSendView(discord.ui.View):
         # メッセージを取得
         try:
             # メッセージIDからメッセージを取得
+            print(f"[DEBUG] メッセージID {self.message_id} を検索中...")
             message = None
+            searched_channels = 0
+            
             for channel in interaction.client.get_all_channels():
                 if isinstance(channel, discord.TextChannel):
+                    searched_channels += 1
                     try:
                         message = await channel.fetch_message(self.message_id)
+                        print(f"[DEBUG] メッセージを発見: チャンネル {channel.name} (ID: {channel.id})")
                         break
-                    except (discord.NotFound, discord.Forbidden):
+                    except discord.NotFound:
+                        continue
+                    except discord.Forbidden:
+                        print(f"[DEBUG] アクセス拒否: チャンネル {channel.name} (ID: {channel.id})")
                         continue
             
+            print(f"[DEBUG] {searched_channels} 個のチャンネルを検索しました")
+            
             if not message:
-                await interaction.followup.send("❌ 指定されたメッセージが見つかりませんでした。", ephemeral=True)
+                print(f"[DEBUG] メッセージID {self.message_id} が見つかりませんでした")
+                await interaction.followup.send(
+                    "❌ 指定されたメッセージが見つかりませんでした。\n\n"
+                    "**確認事項:**\n"
+                    "• メッセージIDが正しいか確認してください\n"
+                    "• Botがそのチャンネルにアクセスできるか確認してください\n"
+                    "• メッセージが削除されていないか確認してください",
+                    ephemeral=True
+                )
                 # 確認メッセージを削除
                 try:
                     await self.confirm_message.delete()
@@ -140,7 +158,7 @@ class WebhookSenderCog(commands.Cog):
         self.webhook_url = SENDER_WEBHOOK_URL
         
         if not self.webhook_url:
-            print("⚠️ 警告: WEBHOOK_URLが.envファイルに設定されていません。")
+            print("⚠️ 警告: SENDER_WEBHOOK_URLが.envファイルに設定されていません。")
 
     async def get_webhook_info(self) -> dict:
         """Web Hookの情報を取得"""
