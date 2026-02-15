@@ -36,8 +36,11 @@ class WebhookSendView(discord.ui.View):
             print(f"[DEBUG] メッセージID {self.message_id} を検索中...")
             message = None
             searched_channels = 0
+            searched_threads = 0
             
+            # 通常のチャンネルとスレッドを検索
             for channel in interaction.client.get_all_channels():
+                # TextChannel（通常のテキストチャンネル）
                 if isinstance(channel, discord.TextChannel):
                     searched_channels += 1
                     try:
@@ -49,8 +52,20 @@ class WebhookSendView(discord.ui.View):
                     except discord.Forbidden:
                         print(f"[DEBUG] アクセス拒否: チャンネル {channel.name} (ID: {channel.id})")
                         continue
+                # Thread（スレッド・フォーラム投稿）
+                elif isinstance(channel, discord.Thread):
+                    searched_threads += 1
+                    try:
+                        message = await channel.fetch_message(self.message_id)
+                        print(f"[DEBUG] メッセージを発見: スレッド {channel.name} (ID: {channel.id})")
+                        break
+                    except discord.NotFound:
+                        continue
+                    except discord.Forbidden:
+                        print(f"[DEBUG] アクセス拒否: スレッド {channel.name} (ID: {channel.id})")
+                        continue
             
-            print(f"[DEBUG] {searched_channels} 個のチャンネルを検索しました")
+            print(f"[DEBUG] {searched_channels} 個のチャンネル、{searched_threads} 個のスレッドを検索しました")
             
             if not message:
                 print(f"[DEBUG] メッセージID {self.message_id} が見つかりませんでした")
@@ -58,7 +73,7 @@ class WebhookSendView(discord.ui.View):
                     "❌ 指定されたメッセージが見つかりませんでした。\n\n"
                     "**確認事項:**\n"
                     "• メッセージIDが正しいか確認してください\n"
-                    "• Botがそのチャンネルにアクセスできるか確認してください\n"
+                    "• Botがそのチャンネル/スレッドにアクセスできるか確認してください\n"
                     "• メッセージが削除されていないか確認してください",
                     ephemeral=True
                 )
@@ -158,7 +173,7 @@ class WebhookSenderCog(commands.Cog):
         self.webhook_url = SENDER_WEBHOOK_URL
         
         if not self.webhook_url:
-            print("⚠️ 警告: SENDER_WEBHOOK_URLが.envファイルに設定されていません。")
+            print("⚠️ 警告: WEBHOOK_URLが.envファイルに設定されていません。")
 
     async def get_webhook_info(self) -> dict:
         """Web Hookの情報を取得"""
