@@ -11,7 +11,10 @@ if TOKEN is None:
     raise ValueError("DISCORD_BOT_TOKEN が見つかりません")
 
 # Intents
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.message_content = True
+intents.guilds = True
+intents.messages = True 
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -65,3 +68,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("🛑 Botを手動で停止しました。")	
+
