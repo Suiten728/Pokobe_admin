@@ -39,9 +39,9 @@ class WebhookSendView(discord.ui.View):
             searched_threads = 0
             
             # 通常のチャンネルとスレッドを検索
-            for channel in interaction.client.get_all_channels():
+            for guild in interaction.client.guilds:
                 # TextChannel（通常のテキストチャンネル）
-                if isinstance(channel, discord.TextChannel):
+                for channel in guild.text_channels:
                     searched_channels += 1
                     try:
                         message = await channel.fetch_message(self.message_id)
@@ -52,18 +52,50 @@ class WebhookSendView(discord.ui.View):
                     except discord.Forbidden:
                         print(f"[DEBUG] アクセス拒否: チャンネル {channel.name} (ID: {channel.id})")
                         continue
-                # Thread（スレッド・フォーラム投稿）
-                elif isinstance(channel, discord.Thread):
+                
+                if message:
+                    break
+                
+                # Thread（アクティブなスレッド）
+                for thread in guild.threads:
                     searched_threads += 1
                     try:
-                        message = await channel.fetch_message(self.message_id)
-                        print(f"[DEBUG] メッセージを発見: スレッド {channel.name} (ID: {channel.id})")
+                        message = await thread.fetch_message(self.message_id)
+                        print(f"[DEBUG] メッセージを発見: スレッド {thread.name} (ID: {thread.id})")
                         break
                     except discord.NotFound:
                         continue
                     except discord.Forbidden:
-                        print(f"[DEBUG] アクセス拒否: スレッド {channel.name} (ID: {channel.id})")
+                        print(f"[DEBUG] アクセス拒否: スレッド {thread.name} (ID: {thread.id})")
                         continue
+                
+                if message:
+                    break
+                
+                # ForumChannel（フォーラムチャンネル内のスレッド）
+                for channel in guild.forums:
+                    # アクティブなスレッドを取得
+                    try:
+                        active_threads = channel.threads
+                        for thread in active_threads:
+                            searched_threads += 1
+                            try:
+                                message = await thread.fetch_message(self.message_id)
+                                print(f"[DEBUG] メッセージを発見: フォーラムスレッド {thread.name} (ID: {thread.id})")
+                                break
+                            except discord.NotFound:
+                                continue
+                            except discord.Forbidden:
+                                print(f"[DEBUG] アクセス拒否: フォーラムスレッド {thread.name} (ID: {thread.id})")
+                                continue
+                    except:
+                        continue
+                    
+                    if message:
+                        break
+                
+                if message:
+                    break
             
             print(f"[DEBUG] {searched_channels} 個のチャンネル、{searched_threads} 個のスレッドを検索しました")
             
@@ -74,7 +106,7 @@ class WebhookSendView(discord.ui.View):
                     "**確認事項:**\n"
                     "• メッセージIDが正しいか確認してください\n"
                     "• Botがそのチャンネル/スレッドにアクセスできるか確認してください\n"
-                    "• メッセージが削除されていないか確認してください",
+                    "• フォーラムのスレッドの場合、スレッドがアーカイブされていないか確認してください",
                     ephemeral=True
                 )
                 # 確認メッセージを削除
@@ -173,7 +205,7 @@ class WebhookSenderCog(commands.Cog):
         self.webhook_url = SENDER_WEBHOOK_URL
         
         if not self.webhook_url:
-            print("⚠️ 警告: WEBHOOK_URLが.envファイルに設定されていません。")
+            print("⚠️ 警告: SENDER_WEBHOOK_URLが.envファイルに設定されていません。")
 
     async def get_webhook_info(self) -> dict:
         """Web Hookの情報を取得"""
