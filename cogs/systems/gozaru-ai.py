@@ -19,10 +19,10 @@ USER_MAX_LENGTH = int(os.getenv("USER_MAX_LENGTH"))
 GEMINI_MAX_LENGTH = int(os.getenv("GEMINI_MAX_LENGTH"))
 
 # データファイルパス
-PROFILE_JSON = "data/profile.json"
-RELATIONSHIPS_JSON = "data/relationships.json"
-JOKES_JSON = "data/jokes.json"
-SYSTEM_PROMPT_TXT = "data/system_prompt.txt"
+PROFILE_JSON = "data_public/ai-gozaru/profile.json"
+RELATIONSHIPS_JSON = "data_public/relationships.json"
+JOKES_JSON = "data_public/ai-gozaru/jokes.json"
+SYSTEM_PROMPT_TXT = "data_public/ai-gozaru/system_prompt.txt"
 
 DB_PATH = "data/ai_memory.db"
 MEMORY_LIMIT = 5  # 直近5往復分（v1.14仕様）
@@ -149,7 +149,7 @@ class TalkCog(commands.Cog):
 
     # ===== Gemini =====
     async def ask_gemini(self, prompt: str) -> str:
-        url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent"
+        url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-pro:generateContent"
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],

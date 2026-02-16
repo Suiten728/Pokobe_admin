@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 # .envファイルを読み込む
-load_dotenv()
+load_dotenv(dotenv_path="ci/.env")
 SENDER_WEBHOOK_URL = os.getenv("SENDER_WEBHOOK_URL")
 CM_ROLE_ID = os.getenv("CM_ROLE_ID")
 
