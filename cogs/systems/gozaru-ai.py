@@ -149,7 +149,7 @@ class TalkCog(commands.Cog):
 
     # ===== Gemini =====
     async def ask_gemini(self, prompt: str) -> str:
-        url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-pro:generateContent"
+        url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent"
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
