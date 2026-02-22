@@ -6,7 +6,7 @@ from discord.ext import commands
 #  インタラクティブコンポーネント（サブクラスで callback を定義）
 # ═══════════════════════════════════════════════════════════════
 
-class OptionSelect(discord.ui.StringSelect):
+class OptionSelect(discord.ui.Select):
     def __init__(self):
         super().__init__(
             placeholder="🔽 オプションを選択してください",
