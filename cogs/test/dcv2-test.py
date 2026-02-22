@@ -1,44 +1,53 @@
 import discord
 from discord.ext import commands
-from discord import ui
 
-class TestButton(discord.ui.Button):
+
+# --- LayoutView本体 ---
+class ContactView(discord.ui.LayoutView):
+
     def __init__(self):
-        super().__init__(
-            label="embed内View",
-            style=discord.ButtonStyle.primary,
-            row=0  # レイアウト位置
+        super().__init__()
+
+        # タイトル
+        title = discord.ui.TextDisplay(
+            "## お問い合わせ"
         )
 
-    async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message(
-            "送信に成功しました！",
-            ephemeral=True
+        # 説明文
+        description = discord.ui.TextDisplay(
+            "このサーバーに関する質問などはこちらから選択してください。"
         )
-        
-class TestView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=60)
 
-        # add_itemで部品を追加
-        self.add_item(TestButton())
+        # セレクトメニュー
+        select = discord.ui.Select(
+            placeholder="カテゴリを選択してください",
+            options=[
+                discord.SelectOption(label="質問", description="サーバーに関する質問"),
+                discord.SelectOption(label="バグ報告", description="不具合の報告"),
+            ],
+        )
 
+        # コンテナ（緑カード部分）
+        container = discord.ui.Container(
+            title,
+            description,
+            select,
+            accent_color=discord.Color.green()
+        )
+
+        # Viewに追加
+        self.add_item(container)
+
+
+# --- Cog ---
 class Dcv2(commands.Cog):
+
     def __init__(self, bot):
         self.bot = bot
 
     @commands.command(name="dcv2")
     async def dcv2(self, ctx):
-
-        embed = discord.Embed(
-            title="dcv2テスト",
-            description="これはテストです\n\n▼ 下のボタンを押してください"
-        )
-
-        await ctx.send(
-            embed=embed,
-            view=TestView()
-        )
+        await ctx.send(view=ContactView())
 
 
 async def setup(bot):
