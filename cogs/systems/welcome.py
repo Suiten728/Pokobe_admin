@@ -122,9 +122,18 @@ class GuildLanguageSelect(ui.Select):
 
         # メッセージを新しい言語の View で更新
         new_view = WelcomeView(self.guild_id, selected)
-        await interaction.response.defer()
-        await interaction.edit_original_response()
-
+        await self.bot._connection.http.request(
+            discord.http.Route(
+                "PATCH",
+                "/channels/{channel_id}/messages/{message_id}",
+                channel_id=interaction.channel_id,
+                message_id=interaction.message.id,
+            ),
+            json={
+                "flags": 1 << 15,
+                "components": new_view.to_components(),
+            }
+        )
 # =========================
 # WelcomeView（LayoutView）
 # ノート: Container / TextDisplay / Separator / ActionRow で構成
@@ -208,6 +217,7 @@ class WelcomeCog(commands.Cog):
 # =========================
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(WelcomeCog(bot))
+
 
 
 
