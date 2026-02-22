@@ -45,50 +45,95 @@ def save_guild_lang(data: dict) -> None:
 def build_contents_for_lang(lang_code: str) -> dict:
     lang = LANG_MASTER.get(lang_code, LANG_MASTER["jp"])
     return {
-        "title":     lang["title"],
-        "desc":      lang["desc"],
-        "auth":      lang["auth"].format(auth=AUTH_CHANNEL_ID),
-        "intro":     lang["intro"].format(intro=INTRO_CHANNEL_ID),
-        "warn":      lang["warn"],
-        "rule_btn":  lang["rule_btn"],
-        "auth_btn":  lang["auth_btn"],
-        "intro_btn": lang["intro_btn"],
+        "title":      lang["title"],
+        "desc":       lang["desc"],
+        "auth":       lang["auth"].format(auth=AUTH_CHANNEL_ID),
+        "intro":      lang["intro"].format(intro=INTRO_CHANNEL_ID),
+        "warn":       lang["warn"],
+        "rule_btn":   lang["rule_btn"],
+        "auth_btn":   lang["auth_btn"],
+        "intro_btn":  lang["intro_btn"],
         "lang_label": lang["lang_label"],
     }
 
 # =========================
-# Buttons（リンクボタン / サブクラス化）
-# ノート: LayoutView ではデコレータ不可 → Button をサブクラス化して ActionRow に入れる
-# リンクボタンは url を渡すだけ、callback 不要・custom_id 不可
+# Component v2 JSON Builder
+# LayoutView の self.container をインスタンス変数で組むと
+# to_components() が空を返すため、JSON を直接組み立てて HTTP 送信する
 # =========================
-class RuleButton(ui.Button):
-    def __init__(self, label: str, guild_id: int):
-        super().__init__(
-            label=label,
-            style=discord.ButtonStyle.link,
-            url=f"https://discord.com/channels/{guild_id}/{RULE_CHANNEL_ID}",
-        )
-
-class AuthButton(ui.Button):
-    def __init__(self, label: str, guild_id: int):
-        super().__init__(
-            label=label,
-            style=discord.ButtonStyle.link,
-            url=f"https://discord.com/channels/{guild_id}/{AUTH_CHANNEL_ID}",
-        )
-
-class IntroButton(ui.Button):
-    def __init__(self, label: str, guild_id: int):
-        super().__init__(
-            label=label,
-            style=discord.ButtonStyle.link,
-            url=f"https://discord.com/channels/{guild_id}/{INTRO_CHANNEL_ID}",
-        )
+def build_components_json(guild_id: int, lang_code: str = "jp") -> list:
+    c = build_contents_for_lang(lang_code)
+    return [
+        {
+            "type": 17,                # Container
+            "accent_color": 0x5865F2,  # blurple
+            "components": [
+                # タイトル・説明
+                {"type": 10, "content": f"## {c['title']}"},
+                {"type": 10, "content": c["desc"]},
+                {"type": 14, "spacing": 2},   # Separator large
+                # チャンネル案内
+                {"type": 10, "content": c["auth"]},
+                {"type": 10, "content": c["intro"]},
+                {"type": 14, "spacing": 1},   # Separator small
+                # 注意書き
+                {"type": 10, "content": c["warn"]},
+                {"type": 14, "spacing": 2},   # Separator large
+                # チャンネルリンクボタン
+                {
+                    "type": 1,  # ActionRow
+                    "components": [
+                        {
+                            "type": 2, "style": 5,
+                            "label": c["rule_btn"],
+                            "url": f"https://discord.com/channels/{guild_id}/{RULE_CHANNEL_ID}",
+                        },
+                        {
+                            "type": 2, "style": 5,
+                            "label": c["auth_btn"],
+                            "url": f"https://discord.com/channels/{guild_id}/{AUTH_CHANNEL_ID}",
+                        },
+                        {
+                            "type": 2, "style": 5,
+                            "label": c["intro_btn"],
+                            "url": f"https://discord.com/channels/{guild_id}/{INTRO_CHANNEL_ID}",
+                        },
+                    ],
+                },
+                # 言語セレクトラベル
+                {"type": 10, "content": f"-# {c['lang_label']}"},
+                # 言語セレクト
+                {
+                    "type": 1,  # ActionRow
+                    "components": [
+                        {
+                            "type": 3,  # StringSelect
+                            "custom_id": f"welcome_lang_select:{guild_id}",
+                            "placeholder": "🌐 言語を選択 / Select Language",
+                            "min_values": 1,
+                            "max_values": 1,
+                            "options": [
+                                {"label": "日本語",             "value": "jp",    "emoji": {"name": "🇯🇵"}},
+                                {"label": "English",            "value": "en",    "emoji": {"name": "🇺🇸"}},
+                                {"label": "中文",               "value": "zh",    "emoji": {"name": "🇨🇳"}},
+                                {"label": "한국어",              "value": "ko",    "emoji": {"name": "🇰🇷"}},
+                                {"label": "Français",           "value": "fr",    "emoji": {"name": "🇫🇷"}},
+                                {"label": "Deutsch",            "value": "de",    "emoji": {"name": "🇩🇪"}},
+                                {"label": "Bahasa Indonesia",   "value": "id",    "emoji": {"name": "🇮🇩"}},
+                                {"label": "Español",            "value": "es",    "emoji": {"name": "🇪🇸"}},
+                                {"label": "Português (Brasil)", "value": "pt_BR", "emoji": {"name": "🇧🇷"}},
+                            ],
+                        }
+                    ],
+                },
+            ],
+        }
+    ]
 
 # =========================
-# Language Select（サブクラス化）
-# ノート: Select をサブクラス化して callback を定義、ActionRow に入れる
-# custom_id はギルド単位で固定 → 永続化対応
+# Language Select（永続化用）
+# add_view に渡すためだけに定義。
+# callback 内では interaction.client.http で直接 PATCH する。
 # =========================
 class GuildLanguageSelect(ui.Select):
     def __init__(self, guild_id: int):
@@ -109,7 +154,7 @@ class GuildLanguageSelect(ui.Select):
             options=options,
             min_values=1,
             max_values=1,
-            custom_id=f"welcome_lang_select:{guild_id}",  # ← 永続化のため固定
+            custom_id=f"welcome_lang_select:{guild_id}",  # 永続化のため固定
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -120,9 +165,11 @@ class GuildLanguageSelect(ui.Select):
         data[str(self.guild_id)] = selected
         save_guild_lang(data)
 
-        # メッセージを新しい言語の View で更新
-        new_view = WelcomeView(self.guild_id, selected)
-        await self.bot._connection.http.request(
+        # まず defer（応答しないと "インタラクションに失敗しました" になる）
+        await interaction.response.defer()
+
+        # Component v2 フラグ付きで PATCH
+        await interaction.client.http.request(
             discord.http.Route(
                 "PATCH",
                 "/channels/{channel_id}/messages/{message_id}",
@@ -131,44 +178,17 @@ class GuildLanguageSelect(ui.Select):
             ),
             json={
                 "flags": 1 << 15,
-                "components": new_view.to_components(),
+                "components": build_components_json(self.guild_id, selected),
             }
         )
-# =========================
-# WelcomeView（LayoutView）
-# ノート: Container / TextDisplay / Separator / ActionRow で構成
-#        Embed との共存不可 → Embed は使わず Container に統合
-#        timeout=None 必須（永続化）
-#        動的コンテンツのため __init__ 内で self.container を組み立てる
-# =========================
-class WelcomeView(ui.LayoutView):
-    def __init__(self, guild_id: int, lang_code: str = "jp"):
-        super().__init__(timeout=None)
-        c = build_contents_for_lang(lang_code)
 
-        self.container = ui.Container(
-            # タイトル・説明
-            ui.TextDisplay(f"## {c['title']}"),
-            ui.TextDisplay(c["desc"]),
-            ui.Separator(spacing=discord.SeparatorSpacing.large),
-            # チャンネル案内
-            ui.TextDisplay(c["auth"]),
-            ui.TextDisplay(c["intro"]),
-            ui.Separator(spacing=discord.SeparatorSpacing.small),
-            # 注意書き
-            ui.TextDisplay(c["warn"]),
-            ui.Separator(spacing=discord.SeparatorSpacing.large),
-            # チャンネルリンクボタン（1行にまとめる）
-            ui.ActionRow(
-                RuleButton(c["rule_btn"],  guild_id),
-                AuthButton(c["auth_btn"],  guild_id),
-                IntroButton(c["intro_btn"], guild_id),
-            ),
-            # 言語セレクト
-            ui.TextDisplay(f"-# {c['lang_label']}"),
-            ui.ActionRow(GuildLanguageSelect(guild_id)),
-            accent_colour=discord.Colour.blurple(),
-        )
+
+class PersistentSelectView(ui.View):
+    """add_view 登録専用。GuildLanguageSelect の callback を有効にするためだけに存在する。"""
+    def __init__(self, guild_id: int):
+        super().__init__(timeout=None)
+        self.add_item(GuildLanguageSelect(guild_id))
+
 
 # =========================
 # Cog
@@ -178,48 +198,45 @@ class WelcomeCog(commands.Cog):
         self.bot = bot
 
     @commands.Cog.listener()
+    async def on_ready(self) -> None:
+        # 永続化: Bot 再起動後もセレクトが反応するよう全ギルド分登録
+        lang_data = load_guild_lang()
+        for guild in self.bot.guilds:
+            lang = lang_data.get(str(guild.id), "jp")
+            self.bot.add_view(PersistentSelectView(guild.id))
+            print(f"[INFO] add_view 登録: guild={guild.id} lang={lang}")
+
+    @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
         print(f"[DEBUG] on_member_join 発火: {member} / guild: {member.guild.id}")
+
         ch = member.guild.get_channel(WELCOME_CHANNEL_ID)
-        print(f"[DEBUG] チャンネル取得結果: {ch}")
-        print(f"[DEBUG] WELCOME_CHANNEL_ID: {WELCOME_CHANNEL_ID}")
         if ch is None:
-            print("[DEBUG] チャンネルが None のため return")
+            print(f"[DEBUG] チャンネルが見つかりません: {WELCOME_CHANNEL_ID}")
             return
 
         lang = load_guild_lang().get(str(member.guild.id), "jp")
-        view = WelcomeView(member.guild.id, lang)
-        
         print(f"[DEBUG] 言語: {lang}")
+
         try:
             await self.bot.http.request(
-                discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=ch.id),
+                discord.http.Route(
+                    "POST",
+                    "/channels/{channel_id}/messages",
+                    channel_id=ch.id,
+                ),
                 json={
-                    "flags": 1 << 15,
-                    "components": view.to_components(),
+                    "flags": 1 << 15,       # IS_COMPONENTS_V2
+                    "components": build_components_json(member.guild.id, lang),
                 }
             )
             print("[DEBUG] 送信成功")
         except Exception as e:
             print(f"[DEBUG] 送信エラー: {e}")
 
-    @commands.Cog.listener()
-    async def on_ready(self) -> None:
-        # 永続化: Bot 再起動後もセレクトが反応するよう全ギルド分登録
-        # ノート: custom_id を固定 + timeout=None + on_ready で add_view
-        lang_data = load_guild_lang()
-        for guild in self.bot.guilds:
-            lang = lang_data.get(str(guild.id), "jp")
-            self.bot.add_view(WelcomeView(guild.id, lang))
 
 # =========================
 # setup
 # =========================
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(WelcomeCog(bot))
-
-
-
-
-
-
