@@ -183,13 +183,13 @@ class WelcomeCog(commands.Cog):
         
         print(f"[DEBUG] 言語: {lang}")
         try:
-             await self.bot.http.request(
-                 discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=ch.id),
-                 json={
-                     "flags": 1 << 15,
-                     "components": view.to_components(),
-                 }
-             )
+            await self.bot.http.request(
+                discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=ch.id),
+                json={
+                    "flags": 1 << 15,
+                    "components": view.to_components(),
+                }
+            )
             print("[DEBUG] 送信成功")
         except Exception as e:
             print(f"[DEBUG] 送信エラー: {e}")
@@ -208,6 +208,7 @@ class WelcomeCog(commands.Cog):
 # =========================
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(WelcomeCog(bot))
+
 
 
 
