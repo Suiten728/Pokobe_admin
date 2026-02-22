@@ -8,13 +8,9 @@ from discord.ext import commands
 class DCV2View(discord.ui.LayoutView):
     """Component v2 LayoutView テストビュー"""
 
-    # Container をクラス属性として直接定義（ネストクラス不使用）
     container = discord.ui.Container(
         discord.ui.TextDisplay("# 🧪 Component v2 動作テスト"),
-        discord.ui.Separator(
-            spacing=discord.SeparatorSpacing.large,
-            divider=True,
-        ),
+        discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
         discord.ui.TextDisplay(
             "**discord.py 2.6.4 / Component v2 (LayoutView)** のテスト画面です。\n"
             "以下のコンポーネントをそれぞれ操作して動作確認してください。\n\n"
@@ -22,8 +18,10 @@ class DCV2View(discord.ui.LayoutView):
             "- 📨 **送信テスト** — Primaryボタンで送信確認\n"
             "- ✅ / ⛔ **スタイル確認** — Success / Danger ボタン"
         ),
-        discord.ui.Separator(divider=True),
-        discord.ui.TextDisplay("-# Component v2 テスト  |  discord.py 2.6.4  |  LayoutView"),
+        discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
+        discord.ui.TextDisplay(
+            "-# Component v2 テスト  |  discord.py 2.6.4  |  LayoutView"
+        ),
         accent_colour=discord.Colour.blurple(),
     )
 
