@@ -55,11 +55,9 @@ authn.pyやrules.pyの送信用コマンドです。送信ができればコマ�
 (betaは開発途中のコードも含むため推奨はしません)
 - Welcomeメッセージ(cogs/systems/welcome.py)
 - TikTokのウェブフック(cogs/systems/tiktok.py)
-- 多言語機能付きテキスト(cogs/systems/pulldown.py)
 - メンシプ認証
-- 匿名目安箱(cogs/systems/tokumei-feedback.py)
-- ランク機能(cogs/commands/rank.py)
 
 <div align="center">
-  <p>©2025 Pokobe_admin Powered by Suiten</p>
+  <p>©2025-2026 Pokobe_admin Powered by Suiten</p>
 </div>
+
