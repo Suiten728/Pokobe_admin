@@ -12,6 +12,7 @@ if TOKEN is None:
 
 # Intents
 intents = discord.Intents.default()
+intents.members = True
 intents.message_content = True
 intents.guilds = True
 intents.messages = True 
@@ -68,4 +69,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("🛑 Botを手動で停止しました。")	
+
 
