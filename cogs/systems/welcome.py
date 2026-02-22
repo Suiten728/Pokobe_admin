@@ -169,12 +169,21 @@ class WelcomeCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
+        print(f"[DEBUG] on_member_join 発火: {member} / guild: {member.guild.id}")
         ch = member.guild.get_channel(WELCOME_CHANNEL_ID)
+        print(f"[DEBUG] チャンネル取得結果: {ch}")
+        print(f"[DEBUG] WELCOME_CHANNEL_ID: {WELCOME_CHANNEL_ID}")
         if ch is None:
+            print("[DEBUG] チャンネルが None のため return")
             return
 
         lang = load_guild_lang().get(str(member.guild.id), "jp")
-        await ch.send(view=WelcomeView(member.guild.id, lang))
+        print(f"[DEBUG] 言語: {lang}")
+        try:
+            await ch.send(view=WelcomeView(member.guild.id, lang))
+            print("[DEBUG] 送信成功")
+        except Exception as e:
+            print(f"[DEBUG] 送信エラー: {e}")
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
@@ -190,3 +199,4 @@ class WelcomeCog(commands.Cog):
 # =========================
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(WelcomeCog(bot))
+
