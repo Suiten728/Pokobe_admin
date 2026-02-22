@@ -122,7 +122,9 @@ class GuildLanguageSelect(ui.Select):
 
         # メッセージを新しい言語の View で更新
         new_view = WelcomeView(self.guild_id, selected)
-        await interaction.response.edit_message(view=new_view)
+        await interaction.response.edit_message(view=new_view,
+                                                flags=discord.MessageFlags(is_components_v2=True),  # ← これも必要
+                                               )
 
 # =========================
 # WelcomeView（LayoutView）
@@ -180,7 +182,9 @@ class WelcomeCog(commands.Cog):
         lang = load_guild_lang().get(str(member.guild.id), "jp")
         print(f"[DEBUG] 言語: {lang}")
         try:
-            await ch.send(view=WelcomeView(member.guild.id, lang))
+            await ch.send(view=WelcomeView(member.guild.id, lang),
+                          flags=discord.MessageFlags(is_components_v2=True),  # ← これが必要
+                         )
             print("[DEBUG] 送信成功")
         except Exception as e:
             print(f"[DEBUG] 送信エラー: {e}")
@@ -199,4 +203,5 @@ class WelcomeCog(commands.Cog):
 # =========================
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(WelcomeCog(bot))
+
 
