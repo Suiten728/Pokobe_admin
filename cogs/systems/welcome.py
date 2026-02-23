@@ -226,7 +226,8 @@ class WelcomeCog(commands.Cog):
                     channel_id=ch.id,
                 ),
                 json={
-                    "flags": 1 << 15,       # IS_COMPONENTS_V2
+                    "flags": 1 << 15,
+                    "content": f"{member.mention}",
                     "components": build_components_json(member.guild.id, lang),
                 }
             )
@@ -240,3 +241,4 @@ class WelcomeCog(commands.Cog):
 # =========================
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(WelcomeCog(bot))
+
