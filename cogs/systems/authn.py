@@ -405,7 +405,7 @@ class VerificationCog(commands.Cog):
                 f"Please send the keyword to <#{VERIFY_CHANNEL_ID}>."
             ),
             color=discord.Color.green()
-        ).set_footer(text="©2025 かざま隊の集いの場")
+        ).set_footer(text="©2025-2026 かざま隊の集いの場")
 
         await channel.send(embed=embed, view=VerifyView())
         await ctx.message.add_reaction("✅")
@@ -476,3 +476,4 @@ class VerificationCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(VerificationCog(bot))
+
