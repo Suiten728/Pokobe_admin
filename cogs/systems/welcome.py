@@ -14,12 +14,12 @@ from PIL import Image, ImageDraw, ImageFont
 # =========================
 load_dotenv(dotenv_path="ci/.env")
 
-WELCOME_CHANNEL_ID      = int(os.getenv("WELCOME_CHANNEL_ID"))
-RULE_CHANNEL_ID         = int(os.getenv("RULE_CHANNEL_ID"))
-AUTH_CHANNEL_ID         = int(os.getenv("AUTH_CHANNEL_ID"))
-INTRO_CHANNEL_ID        = int(os.getenv("INTRO_CHANNEL_ID"))
-GIDE_CHANNEL_ID         = int(os.getenv("GIDE_CHANNEL_ID")) 
-VERIFY_SUPPORT_CHANNEL_ID = int(os.getenv("VERIFY_SUPPORT_CHANNEL_ID")) 
+WELCOME_CHANNEL_ID        = int(os.getenv("WELCOME_CHANNEL_ID"))
+RULE_CHANNEL_ID           = int(os.getenv("RULE_CHANNEL_ID"))
+AUTH_CHANNEL_ID           = int(os.getenv("AUTH_CHANNEL_ID"))
+INTRO_CHANNEL_ID          = int(os.getenv("INTRO_CHANNEL_ID"))
+GIDE_CHANNEL_ID           = int(os.getenv("GIDE_CHANNEL_ID"))
+VERIFY_SUPPORT_CHANNEL_ID = int(os.getenv("VERIFY_SUPPORT_CHANNEL_ID"))
 
 # =========================
 # Files
@@ -78,7 +78,6 @@ def build_contents_for_lang(lang_code: str, guild_id: int) -> dict:
 # assets/welcome_bg.png にユーザーアバター・ユーザー名を合成する
 # =========================
 def _get_font(size: int) -> ImageFont.FreeTypeFont:
-    """日本語対応フォントを探してロードする。見つからなければデフォルト。"""
     candidates = [
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Regular.otf",
@@ -94,29 +93,23 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 async def generate_welcome_card(member: discord.Member) -> bytes:
-    """ウェルカムカード画像を生成して PNG bytes で返す"""
-    # 背景画像
     bg = Image.open(WELCOME_BG_PATH).convert("RGBA")
     bg_w, bg_h = bg.size
 
-    # アバター取得
     async with aiohttp.ClientSession() as session:
         async with session.get(str(member.display_avatar.url)) as resp:
             avatar_bytes = await resp.read()
 
-    # アバターを円形に切り抜き
-    avatar_size = min(bg_h // 2, 120)  # 背景サイズに合わせてスケール
+    avatar_size = min(bg_h // 2, 120)
     avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA").resize((avatar_size, avatar_size))
     mask = Image.new("L", (avatar_size, avatar_size), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, avatar_size, avatar_size), fill=255)
     avatar.putalpha(mask)
 
-    # アバター貼り付け位置（縦中央・左寄り）
     av_x = 30
     av_y = (bg_h - avatar_size) // 2
     bg.paste(avatar, (av_x, av_y), avatar)
 
-    # ユーザー名テキスト描画
     draw = ImageDraw.Draw(bg)
     font_name = _get_font(32)
     font_tag  = _get_font(20)
@@ -127,10 +120,8 @@ async def generate_welcome_card(member: discord.Member) -> bytes:
     name_y    = av_y + avatar_size // 2 - 28
     tag_y     = name_y + 42
 
-    # 影
     draw.text((text_x + 2, name_y + 2), name_text, font=font_name, fill=(0, 0, 0, 160))
     draw.text((text_x + 2, tag_y  + 2), tag_text,  font=font_tag,  fill=(0, 0, 0, 120))
-    # 本文
     draw.text((text_x, name_y), name_text, font=font_name, fill=(255, 255, 255, 255))
     draw.text((text_x, tag_y),  tag_text,  font=font_tag,  fill=(200, 200, 200, 220))
 
@@ -141,19 +132,30 @@ async def generate_welcome_card(member: discord.Member) -> bytes:
 
 # =========================
 # Component v2 JSON Builder
-# card_url=None  → attachment://welcome_card.png（初回送信時）
-# card_url=<str> → CDN URL（言語切り替え時の既存添付ファイル参照）
+# mention : 初回送信時のみ渡す（TextDisplay として Container 先頭に挿入）
+#           IS_COMPONENTS_V2 フラグと content フィールドは併用不可なため
+# card_url: 言語切り替え時に既存添付画像の CDN URL を渡す
 # =========================
-def build_components_json(guild_id: int, lang_code: str = "jp", card_url: str | None = None) -> list:
+def build_components_json(
+    guild_id: int,
+    lang_code: str = "jp",
+    card_url: str | None = None,
+    mention: str | None = None,
+) -> list:
     c = build_contents_for_lang(lang_code, guild_id)
-
     image_url = card_url if card_url else "attachment://welcome_card.png"
+
+    # メンション行（初回のみ・言語切り替え時は None）
+    mention_block = [{"type": 10, "content": mention}] if mention else []
 
     return [
         {
             "type": 17,                # Container
             "accent_color": 0x5865F2,  # blurple
             "components": [
+
+                # ── メンション（初回のみ）────────────────────────────
+                *mention_block,
 
                 # ── ウェルカムカード画像 ──────────────────────────────
                 {
@@ -274,14 +276,13 @@ class GuildLanguageSelect(ui.Select):
     async def callback(self, interaction: discord.Interaction) -> None:
         selected = self.values[0]
 
-        # 言語設定を保存
         data = load_guild_lang()
         data[str(self.guild_id)] = selected
         save_guild_lang(data)
 
         await interaction.response.defer()
 
-        # 既存の添付画像 URL を取得して MediaGallery に再利用する
+        # 既存の添付画像 URL を取得して MediaGallery に再利用
         card_url = None
         if interaction.message and interaction.message.attachments:
             card_url = interaction.message.attachments[0].url
@@ -295,6 +296,7 @@ class GuildLanguageSelect(ui.Select):
             ),
             json={
                 "flags": 1 << 15,
+                # 言語切り替え時は mention=None（メンション行を出さない）
                 "components": build_components_json(self.guild_id, selected, card_url=card_url),
             }
         )
@@ -335,18 +337,21 @@ class WelcomeCog(commands.Cog):
         print(f"[DEBUG] 言語: {lang}")
 
         try:
-            # ウェルカムカード画像を生成
             img_bytes = await generate_welcome_card(member)
 
-            # multipart で送信（画像 + Component v2）
             form = aiohttp.FormData()
             form.add_field(
                 "payload_json",
                 json.dumps({
                     "flags": 1 << 15,
-                    "content": member.mention,
+                    # content は IS_COMPONENTS_V2 と併用不可のため
+                    # mention は build_components_json 内の TextDisplay で対応
                     "attachments": [{"id": 0, "filename": "welcome_card.png"}],
-                    "components": build_components_json(member.guild.id, lang),
+                    "components": build_components_json(
+                        member.guild.id,
+                        lang,
+                        mention=member.mention,  # ← Container 先頭の TextDisplay に挿入
+                    ),
                 }),
                 content_type="application/json",
             )
