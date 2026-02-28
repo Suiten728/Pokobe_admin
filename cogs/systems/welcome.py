@@ -1,4 +1,4 @@
-# cogs/systems/welcome.py
+# cogs/welcome.py
 import discord
 from discord.ext import commands
 from discord import ui
@@ -49,31 +49,32 @@ def save_guild_lang(data: dict) -> None:
 
 # =========================
 # Content Builder
+# mention を desc の {mention} プレースホルダーに埋め込む
+# 言語切り替え時も mention を渡すことで desc 内に維持される
 # =========================
-def build_contents_for_lang(lang_code: str, guild_id: int) -> dict:
+def build_contents_for_lang(lang_code: str, guild_id: int, mention: str = "") -> dict:
     lang = LANG_MASTER.get(lang_code, LANG_MASTER["jp"])
     return {
-        "title":          lang["title"],
-        "desc":           lang["desc"],
-        "welcome_mention": lang["welcome_mention"],  # "{mention}さん、～へようこそ！" 形式
-        "desc2":          lang["desc2"].format(
-                              guild=guild_id,
-                              rule=RULE_CHANNEL_ID,
-                              guide=GIDE_CHANNEL_ID,
-                          ),
-        "desc3":          lang["desc3"].format(
-                              auth=AUTH_CHANNEL_ID,
-                              verify_support=VERIFY_SUPPORT_CHANNEL_ID,
-                          ),
-        "desc4":          lang["desc4"].format(intro=INTRO_CHANNEL_ID),
-        "desc5_label":    lang["desc5_label"],
-        "desc6_label":    lang["desc6_label"],
-        "desc7_label":    lang["desc7_label"],
-        "rule_btn":       lang["rule_btn"],
-        "auth_btn":       lang["auth_btn"],
-        "intro_btn":      lang["intro_btn"],
-        "lang_label":     lang["lang_label"],
-        "lang_desc":      lang["lang_desc"],
+        "title":       lang["title"],
+        "desc":        lang["desc"].format(mention=mention),  # ← ここに埋め込む
+        "desc2":       lang["desc2"].format(
+                           guild=guild_id,
+                           rule=RULE_CHANNEL_ID,
+                           guide=GIDE_CHANNEL_ID,
+                       ),
+        "desc3":       lang["desc3"].format(
+                           auth=AUTH_CHANNEL_ID,
+                           verify_support=VERIFY_SUPPORT_CHANNEL_ID,
+                       ),
+        "desc4":       lang["desc4"].format(intro=INTRO_CHANNEL_ID),
+        "desc5_label": lang["desc5_label"],
+        "desc6_label": lang["desc6_label"],
+        "desc7_label": lang["desc7_label"],
+        "rule_btn":    lang["rule_btn"],
+        "auth_btn":    lang["auth_btn"],
+        "intro_btn":   lang["intro_btn"],
+        "lang_label":  lang["lang_label"],
+        "lang_desc":   lang["lang_desc"],
     }
 
 # =========================
@@ -134,29 +135,17 @@ async def generate_welcome_card(member: discord.Member) -> bytes:
 
 # =========================
 # Component v2 JSON Builder
-# mention : "<@userid>" 形式の生の mention 文字列
-#           言語ファイルの welcome_mention テンプレートに埋め込まれて表示される
-#           言語切り替え時も既存メッセージから抽出して渡すので消えない
-# card_url: 言語切り替え時に既存添付画像の CDN URL を渡す
-# accent   : 送信時にランダム生成した色（int）を渡す
-#            言語切り替え時も同様に既存メッセージから抽出して引き継ぐ
 # =========================
 def build_components_json(
     guild_id: int,
     lang_code: str = "jp",
     card_url: str | None = None,
-    mention: str | None = None,
+    mention: str = "",
     accent: int | None = None,
 ) -> list:
-    c = build_contents_for_lang(lang_code, guild_id)
+    c = build_contents_for_lang(lang_code, guild_id, mention)
     image_url    = card_url if card_url else "attachment://welcome_card.png"
     accent_color = accent if accent is not None else random.randint(0, 0xFFFFFF)
-
-    # メンション行: "{mention}さん、～へようこそ！" に mention を埋め込む
-    mention_block = (
-        [{"type": 10, "content": c["welcome_mention"].format(mention=mention)}]
-        if mention else []
-    )
 
     return [
         {
@@ -164,16 +153,13 @@ def build_components_json(
             "accent_color": accent_color,
             "components": [
 
-                # ── メンション ────────────────────────────────────────
-                *mention_block,
-
                 # ── ウェルカムカード画像 ──────────────────────────────
                 {
                     "type": 12,  # MediaGallery
                     "items": [{"media": {"url": image_url}}],
                 },
 
-                # ── タイトル・説明 ────────────────────────────────────
+                # ── タイトル・説明（desc に {mention} が埋め込まれている）
                 {"type": 10, "content": f"## {c['title']}"},
                 {"type": 10, "content": c["desc"]},
 
@@ -186,7 +172,7 @@ def build_components_json(
 
                 {"type": 14, "spacing": 1},  # Separator small
 
-                # ── ルールボタン（Section: 右端にボタン） ─────────────
+                # ── ルールボタン ──────────────────────────────────────
                 {
                     "type": 9,  # Section
                     "components": [{"type": 10, "content": c["desc5_label"]}],
@@ -247,31 +233,29 @@ def build_components_json(
                         }
                     ],
                 },
-
             ],
         }
     ]
 
 
-def _extract_from_message(msg_data: dict) -> tuple[str | None, int | None]:
+def _extract_mention_and_accent(msg_data: dict) -> tuple[str, int | None]:
     """
-    既存メッセージの raw JSON から mention と accent_color を抽出する。
-    mention  : "<@userid>" 形式、見つからなければ None
-    accent   : int、見つからなければ None
+    既存メッセージの raw JSON から desc 内の mention と accent_color を抽出する。
+    desc は title の次の TextDisplay（type:10）に入っている。
     """
-    mention = None
+    mention = ""
     accent  = None
     try:
         container = msg_data["components"][0]
         accent = container.get("accent_color")
 
-        # mention は先頭の TextDisplay（type:10）に "<@...>" が含まれている
-        for comp in container.get("components", []):
-            if comp.get("type") == 10:
-                match = re.search(r"<@!?\d+>", comp.get("content", ""))
-                if match:
-                    mention = match.group(0)
-                    break
+        # title の次の TextDisplay が desc。<@userid> を正規表現で抽出。
+        texts = [c for c in container.get("components", []) if c.get("type") == 10]
+        # texts[0] = title (## ...)、texts[1] = desc
+        if len(texts) >= 2:
+            match = re.search(r"<@!?\d+>", texts[1].get("content", ""))
+            if match:
+                mention = match.group(0)
     except (KeyError, IndexError, TypeError):
         pass
     return mention, accent
@@ -311,7 +295,7 @@ class GuildLanguageSelect(ui.Select):
 
         await interaction.response.defer()
 
-        # 既存メッセージの raw JSON から mention・accent・画像URL を取得
+        # 既存メッセージから mention と accent を取得して引き継ぐ
         msg_data = await interaction.client.http.request(
             discord.http.Route(
                 "GET",
@@ -320,7 +304,7 @@ class GuildLanguageSelect(ui.Select):
                 message_id=interaction.message.id,
             )
         )
-        mention, accent = _extract_from_message(msg_data)
+        mention, accent = _extract_mention_and_accent(msg_data)
 
         card_url = None
         if interaction.message and interaction.message.attachments:
@@ -338,15 +322,15 @@ class GuildLanguageSelect(ui.Select):
                 "components": build_components_json(
                     self.guild_id, selected,
                     card_url=card_url,
-                    mention=mention,   # 既存メッセージから抽出したメンションを引き継ぐ
-                    accent=accent,     # アクセントカラーも引き継ぐ
+                    mention=mention,
+                    accent=accent,
                 ),
             }
         )
 
 
 class PersistentSelectView(ui.View):
-    """add_view 登録専用。GuildLanguageSelect の callback を有効にするためだけに存在する。"""
+    """add_view 登録専用。"""
     def __init__(self, guild_id: int):
         super().__init__(timeout=None)
         self.add_item(GuildLanguageSelect(guild_id))
@@ -372,11 +356,11 @@ class WelcomeCog(commands.Cog):
         if ch is None:
             return
 
-        lang = load_guild_lang().get(str(member.guild.id), "jp")
+        lang         = load_guild_lang().get(str(member.guild.id), "jp")
+        accent_color = random.randint(0, 0xFFFFFF)
 
         try:
-            img_bytes    = await generate_welcome_card(member)
-            accent_color = random.randint(0, 0xFFFFFF)  # 送信ごとにランダム
+            img_bytes = await generate_welcome_card(member)
 
             form = aiohttp.FormData()
             form.add_field(
