@@ -1,10 +1,12 @@
-# cogs/welcome.py
+# cogs/systems/welcome.py
 import discord
 from discord.ext import commands
 from discord import ui
 import os
 import io
+import re
 import json
+import random
 import aiohttp
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
@@ -51,31 +53,31 @@ def save_guild_lang(data: dict) -> None:
 def build_contents_for_lang(lang_code: str, guild_id: int) -> dict:
     lang = LANG_MASTER.get(lang_code, LANG_MASTER["jp"])
     return {
-        "title":       lang["title"],
-        "desc":        lang["desc"],
-        "desc2":       lang["desc2"].format(
-                           guild=guild_id,
-                           rule=RULE_CHANNEL_ID,
-                           guide=GIDE_CHANNEL_ID,
-                       ),
-        "desc3":       lang["desc3"].format(
-                           auth=AUTH_CHANNEL_ID,
-                           verify_support=VERIFY_SUPPORT_CHANNEL_ID,
-                       ),
-        "desc4":       lang["desc4"].format(intro=INTRO_CHANNEL_ID),
-        "desc5_label": lang["desc5_label"],
-        "desc6_label": lang["desc6_label"],
-        "desc7_label": lang["desc7_label"],
-        "rule_btn":    lang["rule_btn"],
-        "auth_btn":    lang["auth_btn"],
-        "intro_btn":   lang["intro_btn"],
-        "lang_label":  lang["lang_label"],
-        "lang_desc":   lang["lang_desc"],
+        "title":          lang["title"],
+        "desc":           lang["desc"],
+        "welcome_mention": lang["welcome_mention"],  # "{mention}さん、～へようこそ！" 形式
+        "desc2":          lang["desc2"].format(
+                              guild=guild_id,
+                              rule=RULE_CHANNEL_ID,
+                              guide=GIDE_CHANNEL_ID,
+                          ),
+        "desc3":          lang["desc3"].format(
+                              auth=AUTH_CHANNEL_ID,
+                              verify_support=VERIFY_SUPPORT_CHANNEL_ID,
+                          ),
+        "desc4":          lang["desc4"].format(intro=INTRO_CHANNEL_ID),
+        "desc5_label":    lang["desc5_label"],
+        "desc6_label":    lang["desc6_label"],
+        "desc7_label":    lang["desc7_label"],
+        "rule_btn":       lang["rule_btn"],
+        "auth_btn":       lang["auth_btn"],
+        "intro_btn":      lang["intro_btn"],
+        "lang_label":     lang["lang_label"],
+        "lang_desc":      lang["lang_desc"],
     }
 
 # =========================
 # Welcome Card 画像生成（Pillow）
-# assets/welcome_bg.png にユーザーアバター・ユーザー名を合成する
 # =========================
 def _get_font(size: int) -> ImageFont.FreeTypeFont:
     candidates = [
@@ -132,29 +134,37 @@ async def generate_welcome_card(member: discord.Member) -> bytes:
 
 # =========================
 # Component v2 JSON Builder
-# mention : 初回送信時のみ渡す（TextDisplay として Container 先頭に挿入）
-#           IS_COMPONENTS_V2 フラグと content フィールドは併用不可なため
+# mention : "<@userid>" 形式の生の mention 文字列
+#           言語ファイルの welcome_mention テンプレートに埋め込まれて表示される
+#           言語切り替え時も既存メッセージから抽出して渡すので消えない
 # card_url: 言語切り替え時に既存添付画像の CDN URL を渡す
+# accent   : 送信時にランダム生成した色（int）を渡す
+#            言語切り替え時も同様に既存メッセージから抽出して引き継ぐ
 # =========================
 def build_components_json(
     guild_id: int,
     lang_code: str = "jp",
     card_url: str | None = None,
     mention: str | None = None,
+    accent: int | None = None,
 ) -> list:
     c = build_contents_for_lang(lang_code, guild_id)
-    image_url = card_url if card_url else "attachment://welcome_card.png"
+    image_url    = card_url if card_url else "attachment://welcome_card.png"
+    accent_color = accent if accent is not None else random.randint(0, 0xFFFFFF)
 
-    # メンション行（初回のみ・言語切り替え時は None）
-    mention_block = [{"type": 10, "content": mention}] if mention else []
+    # メンション行: "{mention}さん、～へようこそ！" に mention を埋め込む
+    mention_block = (
+        [{"type": 10, "content": c["welcome_mention"].format(mention=mention)}]
+        if mention else []
+    )
 
     return [
         {
-            "type": 17,                # Container
-            "accent_color": 0x5865F2,  # blurple
+            "type": 17,                  # Container
+            "accent_color": accent_color,
             "components": [
 
-                # ── メンション（初回のみ）────────────────────────────
+                # ── メンション ────────────────────────────────────────
                 *mention_block,
 
                 # ── ウェルカムカード画像 ──────────────────────────────
@@ -169,7 +179,7 @@ def build_components_json(
 
                 {"type": 14, "spacing": 2},  # Separator large
 
-                # ── チャンネル案内（テキスト） ─────────────────────────
+                # ── チャンネル案内 ────────────────────────────────────
                 {"type": 10, "content": c["desc2"]},
                 {"type": 10, "content": c["desc3"]},
                 {"type": 10, "content": c["desc4"]},
@@ -179,9 +189,7 @@ def build_components_json(
                 # ── ルールボタン（Section: 右端にボタン） ─────────────
                 {
                     "type": 9,  # Section
-                    "components": [
-                        {"type": 10, "content": c["desc5_label"]},
-                    ],
+                    "components": [{"type": 10, "content": c["desc5_label"]}],
                     "accessory": {
                         "type": 2, "style": 5,
                         "label": c["rule_btn"],
@@ -191,10 +199,8 @@ def build_components_json(
 
                 # ── 認証ボタン ────────────────────────────────────────
                 {
-                    "type": 9,  # Section
-                    "components": [
-                        {"type": 10, "content": c["desc6_label"]},
-                    ],
+                    "type": 9,
+                    "components": [{"type": 10, "content": c["desc6_label"]}],
                     "accessory": {
                         "type": 2, "style": 5,
                         "label": c["auth_btn"],
@@ -204,10 +210,8 @@ def build_components_json(
 
                 # ── 自己紹介ボタン ────────────────────────────────────
                 {
-                    "type": 9,  # Section
-                    "components": [
-                        {"type": 10, "content": c["desc7_label"]},
-                    ],
+                    "type": 9,
+                    "components": [{"type": 10, "content": c["desc7_label"]}],
                     "accessory": {
                         "type": 2, "style": 5,
                         "label": c["intro_btn"],
@@ -248,6 +252,31 @@ def build_components_json(
         }
     ]
 
+
+def _extract_from_message(msg_data: dict) -> tuple[str | None, int | None]:
+    """
+    既存メッセージの raw JSON から mention と accent_color を抽出する。
+    mention  : "<@userid>" 形式、見つからなければ None
+    accent   : int、見つからなければ None
+    """
+    mention = None
+    accent  = None
+    try:
+        container = msg_data["components"][0]
+        accent = container.get("accent_color")
+
+        # mention は先頭の TextDisplay（type:10）に "<@...>" が含まれている
+        for comp in container.get("components", []):
+            if comp.get("type") == 10:
+                match = re.search(r"<@!?\d+>", comp.get("content", ""))
+                if match:
+                    mention = match.group(0)
+                    break
+    except (KeyError, IndexError, TypeError):
+        pass
+    return mention, accent
+
+
 # =========================
 # Language Select（永続化用）
 # =========================
@@ -282,7 +311,17 @@ class GuildLanguageSelect(ui.Select):
 
         await interaction.response.defer()
 
-        # 既存の添付画像 URL を取得して MediaGallery に再利用
+        # 既存メッセージの raw JSON から mention・accent・画像URL を取得
+        msg_data = await interaction.client.http.request(
+            discord.http.Route(
+                "GET",
+                "/channels/{channel_id}/messages/{message_id}",
+                channel_id=interaction.channel_id,
+                message_id=interaction.message.id,
+            )
+        )
+        mention, accent = _extract_from_message(msg_data)
+
         card_url = None
         if interaction.message and interaction.message.attachments:
             card_url = interaction.message.attachments[0].url
@@ -296,8 +335,12 @@ class GuildLanguageSelect(ui.Select):
             ),
             json={
                 "flags": 1 << 15,
-                # 言語切り替え時は mention=None（メンション行を出さない）
-                "components": build_components_json(self.guild_id, selected, card_url=card_url),
+                "components": build_components_json(
+                    self.guild_id, selected,
+                    card_url=card_url,
+                    mention=mention,   # 既存メッセージから抽出したメンションを引き継ぐ
+                    accent=accent,     # アクセントカラーも引き継ぐ
+                ),
             }
         )
 
@@ -322,35 +365,29 @@ class WelcomeCog(commands.Cog):
         for guild in self.bot.guilds:
             lang = lang_data.get(str(guild.id), "jp")
             self.bot.add_view(PersistentSelectView(guild.id))
-            print(f"[INFO] add_view 登録: guild={guild.id} lang={lang}")
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
-        print(f"[DEBUG] on_member_join 発火: {member} / guild: {member.guild.id}")
-
         ch = member.guild.get_channel(WELCOME_CHANNEL_ID)
         if ch is None:
-            print(f"[DEBUG] チャンネルが見つかりません: {WELCOME_CHANNEL_ID}")
             return
 
         lang = load_guild_lang().get(str(member.guild.id), "jp")
-        print(f"[DEBUG] 言語: {lang}")
 
         try:
-            img_bytes = await generate_welcome_card(member)
+            img_bytes    = await generate_welcome_card(member)
+            accent_color = random.randint(0, 0xFFFFFF)  # 送信ごとにランダム
 
             form = aiohttp.FormData()
             form.add_field(
                 "payload_json",
                 json.dumps({
                     "flags": 1 << 15,
-                    # content は IS_COMPONENTS_V2 と併用不可のため
-                    # mention は build_components_json 内の TextDisplay で対応
                     "attachments": [{"id": 0, "filename": "welcome_card.png"}],
                     "components": build_components_json(
-                        member.guild.id,
-                        lang,
-                        mention=member.mention,  # ← Container 先頭の TextDisplay に挿入
+                        member.guild.id, lang,
+                        mention=member.mention,
+                        accent=accent_color,
                     ),
                 }),
                 content_type="application/json",
@@ -370,10 +407,9 @@ class WelcomeCog(commands.Cog):
                 ),
                 data=form,
             )
-            print("[DEBUG] 送信成功")
 
         except Exception as e:
-            print(f"[DEBUG] 送信エラー: {e}")
+            print(f"[ERROR] welcome send failed: {e}")
 
 
 # =========================
