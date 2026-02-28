@@ -1,7 +1,8 @@
 {
   "jp": {
     "title": "👋Welcome to かざま隊の集いの場🪄",
-    "desc": "かざま隊の集いの場へようこそ！どんな人でも推せる安心な環境が揃ったこの場所で、仲間とたくさん楽しい思い出を作りましょう！",
+    "desc": "かざま隊の集いの場へようこそ！",
+    "welcome_mention": "{mention}さん、かざま隊の集いの場へようこそ！",
     "desc2": "📕 まずは [サーバールール](https://discord.com/channels/{guild}/{rule}) と [サーバーガイド](https://discord.com/channels/{guild}/{guide}) を確認しましょう。",
     "desc3": "🏵 次に、<#{auth}>で認証しましょう！わからない場合は<#{verify_support}>でお気軽に質問してください！",
     "desc4": "✏️ 自己紹介は<#{intro}>にてどうぞ！",
@@ -17,7 +18,8 @@
 
   "en": {
     "title": "👋Welcome to Kazama-tai Gathering Place🪄",
-    "desc": "Welcome to Kazama-tai Gathering Place! This is a safe and welcoming space where anyone can cheer for whoever they love. Make lots of wonderful memories with everyone here!",
+    "desc": "Welcome to Kazama-tai Gathering Place!",
+    "welcome_mention": "Welcome, {mention}! We're glad to have you here!",
     "desc2": "📕 First, please check the [Server Rules](https://discord.com/channels/{guild}/{rule}) and [Server Guide](https://discord.com/channels/{guild}/{guide}).",
     "desc3": "🏵 Next, verify yourself at <#{auth}>! If you're unsure, feel free to ask at <#{verify_support}>!",
     "desc4": "✏️ Feel free to introduce yourself at <#{intro}>!",
@@ -33,7 +35,8 @@
 
   "zh": {
     "title": "👋欢迎来到Kazama-tai Gathering Place🪄",
-    "desc": "欢迎来到Kazama-tai Gathering Place！这里是一个任何人都可以安心应援的地方，让我们一起和大家创造美好的回忆吧！",
+    "desc": "欢迎来到Kazama-tai Gathering Place！",
+    "welcome_mention": "{mention}，欢迎加入！很高兴有你！",
     "desc2": "📕 请先确认 [服务器规则](https://discord.com/channels/{guild}/{rule}) 和 [服务器指南](https://discord.com/channels/{guild}/{guide})。",
     "desc3": "🏵 接下来，请在<#{auth}>进行认证！如有疑问，请随时在<#{verify_support}>提问！",
     "desc4": "✏️ 请在<#{intro}>进行自我介绍！",
@@ -49,7 +52,8 @@
 
   "ko": {
     "title": "👋Kazama-tai Gathering Place에 오신 것을 환영합니다🪄",
-    "desc": "Kazama-tai Gathering Place에 오신 것을 환영합니다！누구든 안심하고 응원할 수 있는 이 곳에서 仲間들과 즐거운 추억을 많이 만들어요！",
+    "desc": "Kazama-tai Gathering Place에 오신 것을 환영합니다！",
+    "welcome_mention": "{mention}님, Kazama-tai Gathering Place에 오신 것을 환영합니다！",
     "desc2": "📕 먼저 [서버 규칙](https://discord.com/channels/{guild}/{rule}) 과 [서버 가이드](https://discord.com/channels/{guild}/{guide}) 를 확인해주세요。",
     "desc3": "🏵 다음으로 <#{auth}>에서 인증해주세요！모르시면 <#{verify_support}>에서 편하게 질문해주세요！",
     "desc4": "✏️ 자기소개는 <#{intro}>에서 해주세요！",
@@ -65,7 +69,8 @@
 
   "fr": {
     "title": "👋Bienvenue sur Kazama-tai Gathering Place🪄",
-    "desc": "Bienvenue sur Kazama-tai Gathering Place ! C'est un espace sûr et accueillant où tout le monde peut partager sa passion. Créez plein de beaux souvenirs avec nous !",
+    "desc": "Bienvenue sur Kazama-tai Gathering Place !",
+    "welcome_mention": "Bienvenue {mention} ! Nous sommes ravis de vous accueillir !",
     "desc2": "📕 Commencez par consulter le [Règlement du serveur](https://discord.com/channels/{guild}/{rule}) et le [Guide du serveur](https://discord.com/channels/{guild}/{guide}).",
     "desc3": "🏵 Ensuite, vérifiez votre compte sur <#{auth}> ! En cas de doute, posez vos questions sur <#{verify_support}> !",
     "desc4": "✏️ Présentez-vous sur <#{intro}> !",
@@ -81,7 +86,8 @@
 
   "de": {
     "title": "👋Willkommen auf Kazama-tai Gathering Place🪄",
-    "desc": "Willkommen auf Kazama-tai Gathering Place! Dies ist ein sicherer und herzlicher Ort, an dem jeder seinen Lieblingsidol anfeuern kann. Lass uns zusammen tolle Erinnerungen schaffen!",
+    "desc": "Willkommen auf Kazama-tai Gathering Place!",
+    "welcome_mention": "Willkommen {mention}! Schön, dass du da bist!",
     "desc2": "📕 Bitte lies zuerst die [Serverregeln](https://discord.com/channels/{guild}/{rule}) und den [Serverleitfaden](https://discord.com/channels/{guild}/{guide}).",
     "desc3": "🏵 Verifiziere dich anschließend bei <#{auth}>! Bei Fragen wende dich an <#{verify_support}>!",
     "desc4": "✏️ Stelle dich gerne bei <#{intro}> vor!",
@@ -91,13 +97,14 @@
     "rule_btn": "𝚁𝚄𝙻𝙴𝚂",
     "auth_btn": "Verifizieren",
     "intro_btn": "Vorstellung",
-    "lang_label": "言語選択 / Language / 언어 / 数言",
+    "lang_label": "言語選択 / Language / 언어 / 语言",
     "lang_desc": "Wenn du eine andere Sprache benötigst, wähle unten aus!\nIf you need a language other than German, please select below!\n日本語をご希望の方は以下からお選びください！"
   },
 
   "id": {
     "title": "👋Selamat Datang di Kazama-tai Gathering Place🪄",
-    "desc": "Selamat datang di Kazama-tai Gathering Place! Ini adalah tempat yang aman dan nyaman di mana siapa pun bisa mendukung idolanya. Yuk buat banyak kenangan indah bersama!",
+    "desc": "Selamat datang di Kazama-tai Gathering Place!",
+    "welcome_mention": "Selamat datang {mention}! Senang kamu ada di sini!",
     "desc2": "📕 Pertama, silakan baca [Peraturan Server](https://discord.com/channels/{guild}/{rule}) dan [Panduan Server](https://discord.com/channels/{guild}/{guide}).",
     "desc3": "🏵 Selanjutnya, lakukan verifikasi di <#{auth}>! Jika bingung, tanyakan di <#{verify_support}>!",
     "desc4": "✏️ Perkenalkan dirimu di <#{intro}>!",
@@ -113,7 +120,8 @@
 
   "es": {
     "title": "👋Bienvenido/a a Kazama-tai Gathering Place🪄",
-    "desc": "¡Bienvenido/a a Kazama-tai Gathering Place! Este es un espacio seguro donde todos pueden apoyar a quien quieran. ¡Crea muchos recuerdos increíbles con todos!",
+    "desc": "¡Bienvenido/a a Kazama-tai Gathering Place!",
+    "welcome_mention": "¡Bienvenido/a {mention}! ¡Nos alegra tenerte aquí!",
     "desc2": "📕 Primero, consulta las [Reglas del servidor](https://discord.com/channels/{guild}/{rule}) y la [Guía del servidor](https://discord.com/channels/{guild}/{guide}).",
     "desc3": "🏵 A continuación, verifica tu cuenta en <#{auth}>. Si tienes dudas, pregunta en <#{verify_support}>.",
     "desc4": "✏️ ¡Preséntate en <#{intro}>!",
@@ -129,7 +137,8 @@
 
   "pt_BR": {
     "title": "👋Bem-vindo(a) ao Kazama-tai Gathering Place🪄",
-    "desc": "Bem-vindo(a) ao Kazama-tai Gathering Place! Este é um espaço seguro onde qualquer pessoa pode apoiar quem quiser. Crie muitas memórias incríveis com todos!",
+    "desc": "Bem-vindo(a) ao Kazama-tai Gathering Place!",
+    "welcome_mention": "Seja bem-vindo(a) {mention}! Que bom ter você aqui!",
     "desc2": "📕 Primeiro, leia as [Regras do servidor](https://discord.com/channels/{guild}/{rule}) e o [Guia do servidor](https://discord.com/channels/{guild}/{guide}).",
     "desc3": "🏵 Em seguida, verifique sua conta em <#{auth}>! Se tiver dúvidas, pergunte em <#{verify_support}>!",
     "desc4": "✏️ Apresente-se em <#{intro}>!",
