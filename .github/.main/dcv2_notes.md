@@ -89,6 +89,48 @@ class MySelect(discord.ui.Select): ...
 
 ---
 
+### ❌ エラー5: `TypeError: cannot pickle '_asyncio.Future' object`
+
+**原因:** `LayoutView` は `__init__` 時に `container` のクラス変数を `deepcopy` する。  
+コンポーネント（ボタン・セレクト）が `cog` への参照を持っている場合、  
+`cog.bot` の内部に `asyncio.Future`（コピー不可能なオブジェクト）が含まれているためエラーになる。
+
+```python
+# ❌ cog を self._cog として持つボタンを container に入れると爆発する
+class MyButton(discord.ui.Button):
+    def __init__(self, cog):
+        self._cog = cog  # ← bot を間接的に持つ
+        super().__init__(label="ボタン")
+
+class MyView(discord.ui.LayoutView):
+    container = discord.ui.Container(
+        discord.ui.ActionRow(MyButton(cog))  # ← deepcopy 時に死ぬ
+    )
+```
+
+**対策:** `NoCopy` ミックスインを使って `deepcopy` をスキップする。
+
+```python
+# ✅
+class NoCopy:
+    def __deepcopy__(self, memo):
+        return self  # deepcopy をスキップして自分自身を返す
+
+class MyButton(NoCopy, discord.ui.Button):
+    def __init__(self, cog):
+        self._cog = cog
+        super().__init__(label="ボタン")
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("完了！", ephemeral=True)
+```
+
+`NoCopy` を継承したコンポーネントは `deepcopy` を素通りするため、  
+`cog` や `bot` を持っていても問題なく動く。  
+**cog を受け取るコンポーネントには必ず `NoCopy` を付ける。**
+
+---
+
 ## LayoutView の正しい構造（テンプレート）
 
 ```python
@@ -153,6 +195,43 @@ async def setup(bot: commands.Bot) -> None:
 
 ---
 
+## 動的データを使う LayoutView（ファクトリ関数パターン）
+
+`LayoutView` の `container` はクラス変数でなければならないため、  
+**実行時に決まる値（channel_id、cog、ユーザー名など）を渡したい場合は、  
+ファクトリ関数の中でクラスを定義してインスタンスを返す**のが正しいパターン。
+
+```python
+# ❌ インスタンス変数に container を入れても動かない
+class MyView(discord.ui.LayoutView):
+    def __init__(self, text: str):
+        self.container = discord.ui.Container(  # NG：クラス変数でないと無視される
+            discord.ui.TextDisplay(text),
+        )
+        super().__init__()
+
+# ❌ super().__init__() より前に設定しても動かない（同じ理由）
+class MyView(discord.ui.LayoutView):
+    def __init__(self, text: str):
+        self.container = discord.ui.Container(...)  # NG
+        super().__init__()
+
+# ✅ ファクトリ関数でクラスごと動的に生成する
+def make_my_view(text: str):
+    class MyView(discord.ui.LayoutView):
+        container = discord.ui.Container(   # ← クラス変数として定義
+            discord.ui.TextDisplay(text),   # ← 外側の変数をクロージャで参照
+        )
+    return MyView(timeout=300)
+```
+
+**なぜクラス変数でないといけないのか:**  
+`LayoutView` はメタクラスの仕組みで**クラス定義の時点**で `container` をスキャンして  
+コンポーネントを内部登録する。`self.container` はクラス定義後に追加されるため、  
+タイミングに関わらず永遠に拾われない。
+
+---
+
 ## 通常の View との構造比較
 
 | | 通常の `View` | `LayoutView` |
@@ -162,6 +241,8 @@ async def setup(bot: commands.Bot) -> None:
 | レイアウト | Discordが自動配置 | `Container` / `TextDisplay` / `Separator` で手動構成 |
 | 送信方法 | `ctx.send(view=view)` | 同じ |
 | Embed との共存 | `ctx.send(embed=embed, view=view)` | `Container` が Embed 相当のため不要（同時使用不可） |
+| 動的データの渡し方 | `__init__` に引数を渡す | ファクトリ関数でクラスごと生成する |
+| cog の保持 | そのまま `self._cog = cog` でOK | `NoCopy` ミックスインが必要 |
 
 ---
 
@@ -264,6 +345,29 @@ discord.ui.ActionRow(Button1(), Button2(), Button3())
 
 # セレクトメニュー（ActionRowに単体で入れる）
 discord.ui.ActionRow(MySelect())
+```
+
+---
+
+## エラーが無音で握りつぶされるケース
+
+discord.py の `commands.command` は、コマンドハンドラ内で発生した例外を  
+**デフォルトでは `on_command_error` に渡して処理する**。  
+`on_command_error` が定義されていない場合は標準エラー出力に出るが、  
+ロギングの設定や Bot フレームワーク次第では**コンソールに何も出ずに無音で失敗する**ことがある。
+
+コマンドが呼ばれているのに何も起きない場合、まず `try/except` で明示的にキャッチして確認する。
+
+```python
+@commands.command(name="mycommand")
+async def mycommand(self, ctx: commands.Context):
+    try:
+        # 処理
+        await ctx.send(view=make_my_view(self, str(ctx.channel.id)))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        await ctx.send(f"```\n{type(e).__name__}: {e}\n```")
 ```
 
 ---
