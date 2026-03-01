@@ -131,6 +131,97 @@ class MyButton(NoCopy, discord.ui.Button):
 
 ---
 
+### ❌ エラー6: `400 Bad Request (error code: 50006): Cannot send an empty message`
+
+**原因:** Component v2（LayoutView）のメッセージには Discord API に **IS_COMPONENTS_V2 フラグ**を明示する必要がある。  
+フラグなしで送ると「空メッセージ」として弾かれる。
+
+また、discord.py 2.6.4 の `Messageable.send()` には `flags` 引数が存在しないため、  
+**`bot.http.request` で直接 Discord API を叩く**必要がある。
+
+```python
+# ❌ send() に flags は使えない（2.6.4 では未実装）
+await ch.send(view=MyView(), flags=discord.MessageFlags(components_v2=True))
+
+# ✅ HTTP 直送で IS_COMPONENTS_V2 フラグ（1 << 15）を付ける
+await bot.http.request(
+    discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=ch.id),
+    json={
+        "flags": 1 << 15,
+        "components": [...],  # Component v2 の JSON
+    }
+)
+```
+
+---
+
+### ❌ エラー7: `400 Bad Request (error code: 50035): Invalid Form Body — 'content' cannot be used with IS_COMPONENTS_V2`
+
+**原因:** IS_COMPONENTS_V2 フラグを付けたメッセージでは `content` フィールドが使えない。  
+メンションをメッセージの `content` に入れようとするとこのエラーになる。
+
+```python
+# ❌ IS_COMPONENTS_V2 と content は併用不可
+json={
+    "flags": 1 << 15,
+    "content": member.mention,  # ← これが弾かれる
+    "components": [...],
+}
+
+# ✅ メンションは Container 内の TextDisplay に入れる
+{"type": 10, "content": f"{member.mention}さん、ようこそ！"}
+```
+
+---
+
+### ❌ エラー8: `to_components()` が空リストを返す
+
+**原因:** `LayoutView` の `container` はクラス変数として定義しなければ内部に登録されない。  
+`__init__` 内で `self.container = ...` と書いてもメタクラスの処理タイミング上、  
+永遠に拾われず `to_components()` が `[]` を返す。
+
+```python
+# ❌ インスタンス変数は無視される
+class MyView(discord.ui.LayoutView):
+    def __init__(self, text: str):
+        super().__init__(timeout=None)
+        self.container = discord.ui.Container(...)  # ← to_components() が [] になる
+```
+
+**対策A: ファクトリ関数でクラスごと動的生成する（LayoutView を使う場合）**
+
+```python
+# ✅
+def make_view(text: str) -> discord.ui.LayoutView:
+    class MyView(discord.ui.LayoutView):
+        container = discord.ui.Container(
+            discord.ui.TextDisplay(text),
+        )
+    return MyView(timeout=None)
+```
+
+**対策B: Component v2 の JSON を直接組み立てて HTTP 送信する（動的データが多い場合に推奨）**
+
+```python
+# ✅ JSON 直送方式（動的コンテンツと相性が良い）
+def build_components_json(text: str) -> list:
+    return [
+        {
+            "type": 17,  # Container
+            "components": [
+                {"type": 10, "content": text},  # TextDisplay
+            ],
+        }
+    ]
+
+await bot.http.request(
+    discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=ch.id),
+    json={"flags": 1 << 15, "components": build_components_json("テキスト")},
+)
+```
+
+---
+
 ## LayoutView の正しい構造（テンプレート）
 
 ```python
@@ -232,84 +323,129 @@ def make_my_view(text: str):
 
 ---
 
-## 通常の View との構造比較
+## Component v2 JSON 直送パターン（動的コンテンツ推奨）
 
-| | 通常の `View` | `LayoutView` |
+動的コンテンツ（メンション、多言語テキスト、ランダム色など）を扱う場合は  
+LayoutView を使わず **JSON を直接組み立てて `bot.http.request` で送る**方が素直。
+
+### コンポーネントの type 番号一覧
+
+| type | コンポーネント | 備考 |
 |---|---|---|
-| ボタン追加 | `@discord.ui.button` デコレータ | `Button` をサブクラス化して `ActionRow` に入れる |
-| セレクト追加 | `@discord.ui.select` デコレータ | `Select` をサブクラス化して `ActionRow` に入れる |
-| レイアウト | Discordが自動配置 | `Container` / `TextDisplay` / `Separator` で手動構成 |
-| 送信方法 | `ctx.send(view=view)` | 同じ |
-| Embed との共存 | `ctx.send(embed=embed, view=view)` | `Container` が Embed 相当のため不要（同時使用不可） |
-| 動的データの渡し方 | `__init__` に引数を渡す | ファクトリ関数でクラスごと生成する |
-| cog の保持 | そのまま `self._cog = cog` でOK | `NoCopy` ミックスインが必要 |
+| 1 | ActionRow | ボタン・セレクトをまとめる行 |
+| 2 | Button | style: 5 = リンクボタン |
+| 3 | StringSelect | セレクトメニュー |
+| 9 | Section | TextDisplay + 右端に accessory（ボタン等） |
+| 10 | TextDisplay | Markdown テキスト |
+| 12 | MediaGallery | 画像表示 |
+| 14 | Separator | spacing: 1=small / 2=large |
+| 17 | Container | Embed 相当のコンテナ |
+
+### Section（テキスト右端にボタンを置く）
+
+```python
+{
+    "type": 9,  # Section
+    "components": [
+        {"type": 10, "content": "📕 ルールはこちら:"},
+    ],
+    "accessory": {
+        "type": 2, "style": 5,
+        "label": "RULES",
+        "url": "https://discord.com/channels/...",
+    },
+}
+```
+
+### MediaGallery（画像表示）
+
+```python
+{
+    "type": 12,
+    "items": [{"media": {"url": "attachment://filename.png"}}],
+}
+```
+
+### 画像付きメッセージの multipart 送信
+
+```python
+form = aiohttp.FormData()
+form.add_field(
+    "payload_json",
+    json.dumps({
+        "flags": 1 << 15,
+        "attachments": [{"id": 0, "filename": "card.png"}],
+        "components": build_components_json(...),
+    }),
+    content_type="application/json",
+)
+form.add_field(
+    "files[0]",
+    img_bytes,          # bytes
+    filename="card.png",
+    content_type="image/png",
+)
+
+await bot.http.request(
+    discord.http.Route("POST", "/channels/{channel_id}/messages", channel_id=ch.id),
+    data=form,
+)
+```
+
+---
+
+## 言語切り替え時の状態引き継ぎ
+
+言語切り替えで PATCH するとき、初回送信時に埋め込んだ情報（メンション・accent_color・添付画像）を  
+**既存メッセージの raw JSON から取得して引き継ぐ**必要がある。
+
+```python
+# GET でメッセージの生 JSON を取得
+msg_data = await interaction.client.http.request(
+    discord.http.Route(
+        "GET",
+        "/channels/{channel_id}/messages/{message_id}",
+        channel_id=interaction.channel_id,
+        message_id=interaction.message.id,
+    )
+)
+
+# accent_color を取得
+accent = msg_data["components"][0].get("accent_color")
+
+# TextDisplay 内の <@userid> を正規表現で抽出
+import re
+for comp in msg_data["components"][0].get("components", []):
+    if comp.get("type") == 10:
+        match = re.search(r"<@!?\d+>", comp.get("content", ""))
+        if match:
+            mention = match.group(0)
+            break
+
+# 添付画像 URL を取得
+card_url = interaction.message.attachments[0].url if interaction.message.attachments else None
+```
 
 ---
 
 ## 永続化（Bot再起動後もボタンを動かす）
 
-通常 `View` はBot再起動すると反応しなくなる。永続化するには **`custom_id` を固定** して `bot.add_view()` を呼ぶ。
-
-### ① custom_id を固定する
-
-```python
-class PersistButton(discord.ui.Button):
-    def __init__(self):
-        # custom_id を固定文字列にする（動的な値はNG）
-        super().__init__(
-            label="永続ボタン",
-            style=discord.ButtonStyle.primary,
-            custom_id="my_persistent_button",  # ← ここが重要
-        )
-
-    async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_message("永続ボタン動作！", ephemeral=True)
-
-
-class PersistSelect(discord.ui.Select):
-    def __init__(self):
-        super().__init__(
-            placeholder="永続セレクト",
-            custom_id="my_persistent_select",  # ← ここが重要
-            options=[
-                discord.SelectOption(label="A", value="a"),
-            ],
-        )
-
-    async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_message(f"選択: {self.values[0]}", ephemeral=True)
-```
-
-### ② LayoutView に `timeout=None` を設定する
+Component v2 を JSON 直送で送った場合、`LayoutView` はメッセージ送信に使わなくても  
+**`add_view` のために `ui.View` サブクラスが必要**。
 
 ```python
-class PersistView(discord.ui.LayoutView):
-    # timeout=None にしないと再起動後に機能しない
-    def __init__(self):
+class PersistentSelectView(ui.View):
+    """add_view 登録専用。コンポーネントの callback を有効にするためだけに存在する。"""
+    def __init__(self, guild_id: int):
         super().__init__(timeout=None)
-
-    container = discord.ui.Container(
-        discord.ui.TextDisplay("# 永続ビュー"),
-        discord.ui.ActionRow(PersistButton()),
-        discord.ui.ActionRow(PersistSelect()),
-    )
+        self.add_item(GuildLanguageSelect(guild_id))  # callback を持つ Select を登録
 ```
 
-### ③ on_ready で bot.add_view() を呼ぶ
-
 ```python
-class MyCog(commands.Cog):
-    def __init__(self, bot: commands.Bot) -> None:
-        self.bot = bot
-
-    @commands.Cog.listener()
-    async def on_ready(self) -> None:
-        # Bot起動時に永続Viewを登録する（送信は不要、登録だけでOK）
-        self.bot.add_view(PersistView())
-
-    @commands.command(name="persist")
-    async def persist(self, ctx: commands.Context) -> None:
-        await ctx.send(view=PersistView())
+@commands.Cog.listener()
+async def on_ready(self) -> None:
+    for guild in self.bot.guilds:
+        self.bot.add_view(PersistentSelectView(guild.id))
 ```
 
 ### 永続化の注意点
@@ -320,7 +456,23 @@ class MyCog(commands.Cog):
 | `custom_id` は変えない | 変えると既存のメッセージのボタンが反応しなくなる |
 | `timeout=None` 必須 | デフォルトは180秒でタイムアウトする |
 | `on_ready` で `add_view` | 起動時に必ず登録しないと再起動後に反応しない |
+| JSON 直送の場合も `add_view` は必要 | 送信は HTTP 直送でも callback 受け取りには `add_view` が必要 |
 | `add_view` に `message_id` を渡すと限定的になる | 特定メッセージのみ反応させたい場合に使う |
+
+---
+
+## 通常の View との構造比較
+
+| | 通常の `View` | `LayoutView` |
+|---|---|---|
+| ボタン追加 | `@discord.ui.button` デコレータ | `Button` をサブクラス化して `ActionRow` に入れる |
+| セレクト追加 | `@discord.ui.select` デコレータ | `Select` をサブクラス化して `ActionRow` に入れる |
+| レイアウト | Discordが自動配置 | `Container` / `TextDisplay` / `Separator` で手動構成 |
+| 送信方法 | `ctx.send(view=view)` | `bot.http.request` で JSON 直送（flags 必須） |
+| Embed との共存 | `ctx.send(embed=embed, view=view)` | `Container` が Embed 相当のため不要（同時使用不可） |
+| content フィールド | 使用可能 | IS_COMPONENTS_V2 フラグと併用不可 |
+| 動的データの渡し方 | `__init__` に引数を渡す | ファクトリ関数 or JSON 直送 |
+| cog の保持 | そのまま `self._cog = cog` でOK | `NoCopy` ミックスインが必要 |
 
 ---
 
