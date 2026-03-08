@@ -85,13 +85,26 @@ async def load_icon(session: aiohttp.ClientSession, url: str, size: int) -> Imag
     img = Image.open(io.BytesIO(data)).convert("RGBA")
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
-def circle_crop(img: Image.Image, size: int) -> Image.Image:
+def circle_crop(img: Image.Image, size: int, border: int = 0, border_color=(30, 233, 182, 255)) -> Image.Image:
+    # 画像を丸く切り抜く
     mask = Image.new("L", (size, size), 0)
-    d = ImageDraw.Draw(mask)
-    d.ellipse((0, 0, size, size), fill=255)
+    ImageDraw.Draw(mask).ellipse((0, 0, size, size), fill=255)
     out = Image.new("RGBA", (size, size))
     out.paste(img, (0, 0), mask)
-    return out
+
+    if border <= 0:
+        return out
+
+    # 枠付きの新しいキャンバスを作成（枠の分だけ大きくする）
+    total = size + border * 2
+    framed = Image.new("RGBA", (total, total), (0, 0, 0, 0))
+    
+    # 枠（塗りつぶし円）を描画
+    ImageDraw.Draw(framed).ellipse((0, 0, total, total), fill=border_color)
+    
+    # 中央に元の丸アイコンを貼り付け
+    framed.paste(out, (border, border), out)
+    return framed
 
 # =====================
 # IMAGE GENERATION (2000px版)
@@ -115,26 +128,30 @@ async def generate_rank_card(
 
     async with aiohttp.ClientSession() as session:
         user_icon = circle_crop(
-            await load_icon(session, user.display_avatar.url, 365), 365
+            await load_icon(session, user.display_avatar.url, 400), 400
         )
 
         guild_icon = None
         if interaction.guild.icon:
             guild_icon = circle_crop(
-                await load_icon(session, interaction.guild.icon.url, 220), 220
-            )
+                await load_icon(session, interaction.guild.icon.url, 220), 220,
+                border=3,                        # 枠の太さ（px）
+                border_color=(30, 233, 182, 255) # 枠の色（テーマカラーに合わせてある)
+        )
+        
 
     # 座標
-    img.paste(user_icon, (37, 52), user_icon)
+    img.paste(user_icon, (18, 30), user_icon)
+    # ペースト座標を枠の分だけずらす（border=3なら -3）
     if guild_icon:
-        img.paste(guild_icon, (255, 305), guild_icon)
+            img.paste(guild_icon, (255 - 3, 305 - 3), guild_icon)
 
-    draw.text((500, 48), user.display_name, font=font_big, fill=(0, 0, 0))
-    draw.text((1660, 180), f"{level:02}", font=font_big, fill=(30, 233, 182))
+    draw.text((480, 120), user.display_name, font=font_big, fill=(0, 0, 0), anchor="lm")
+    draw.text((1780, 250), f"{level}", font=font_big, fill=(30, 233, 182), anchor="mm")
 
-    draw.text((600, 480), f"#{server_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((970, 480), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182))
-    draw.text((1300, 480), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182))
+    draw.text((670, 520), f"#{server_rank}", font=font_mid, fill=(30, 233, 182), anchor="mm")
+    draw.text((1040, 520), f"#{weekly_rank}", font=font_mid, fill=(30, 233, 182), anchor="mm")
+    draw.text((1400, 520), f"{weekly_exp}", font=font_mid, fill=(30, 233, 182), anchor="mm")
 
     next_exp = total_exp_for_level(level + 1)
     ratio = min(exp / next_exp, 1) if next_exp else 0
