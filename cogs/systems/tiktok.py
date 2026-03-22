@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands, tasks
 import json
 import aiohttp
-from datetime import datetime, timezone, time
+from datetime import datetime, timezone, time, timedelta
 import pytz
 import os
 from dotenv import load_dotenv
@@ -17,32 +17,37 @@ TIKTOK_WEBHOOK_URL = os.getenv("TIKTOK_WEBHOOK_URL")
 TIKTOK_MENTION_ROLE_ID = int(os.getenv("TIKTOK_MENTION_ROLE_ID"))
 
 JST = pytz.timezone("Asia/Tokyo")
+NOTIFY_COOLDOWN_MINUTES = 5  # 通知後にスキップする分数
 
-NOTIFY_COOLDOWN_MINUTES = 5  # 通知後にスキープする分数
 
 # ======================
 # Cog 本体
 # ======================
 class TikTokNotifyCog(commands.Cog):
+    # ── クラス変数：Cogが再ロードされてもリセットされない ──
+    _notified_ids: set[str] = set()
+    _cooldown_until: datetime | None = None
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.latest_file = "data/latest_video.json"
-        self.last_check: datetime | None = None
-
-        # 二重通知防止用のメモリキャッシュ
-        self._notified_ids: set[str] = set()
-        self._cooldown_until: datetime | None = None
 
         os.makedirs("data", exist_ok=True)
 
     async def cog_load(self):
-        # 多重起動防止
-        if not self.check_tiktok.is_running():
-            # 起動時にファイルから既存IDをメモリへロード
+        # 起動時にファイルから既存IDをクラス変数へロード（初回のみ）
+        if not TikTokNotifyCog._notified_ids:
             saved_id = self.load_last_video_id()
             if saved_id:
-                self._notified_ids.add(saved_id)
+                TikTokNotifyCog._notified_ids.add(saved_id)
+
+        # 多重起動防止
+        if not self.check_tiktok.is_running():
             self.check_tiktok.start()
+
+    async def cog_unload(self):
+        # ゾンビタスク防止：Cog破棄時に必ずタスクを止める
+        self.check_tiktok.cancel()
 
     # ------------------
     # 時間枠判定（15:00〜19:30）
@@ -57,7 +62,6 @@ class TikTokNotifyCog(commands.Cog):
     def load_last_video_id(self):
         if not os.path.exists(self.latest_file):
             return None
-
         try:
             with open(self.latest_file, "r", encoding="utf-8") as f:
                 return json.load(f).get("video_id")
@@ -77,7 +81,6 @@ class TikTokNotifyCog(commands.Cog):
             "x-rapidapi-key": RAPIDAPI_KEY,
             "x-rapidapi-host": TIKTOK_API_HOST
         }
-
         params = {
             "unique_id": TIKTOK_USERNAME,
             "count": 1
@@ -98,14 +101,12 @@ class TikTokNotifyCog(commands.Cog):
         try:
             video = data["data"]["videos"][0]
             video_id = video.get("video_id")
-
             return {
                 "id": video_id,
                 "url": f"https://www.tiktok.com/@{TIKTOK_USERNAME}/video/{video_id}",
                 "desc": video.get("title", "（説明なし）"),
                 "thumbnail": video.get("cover") or video.get("origin_cover")
             }
-
         except Exception as e:
             print("❌ TikTok API フォーマットエラー:", e)
             return None
@@ -151,8 +152,8 @@ class TikTokNotifyCog(commands.Cog):
 
         # クールダウン中はスキップ
         now = datetime.now(timezone.utc)
-        if self._cooldown_until and now < self._cooldown_until:
-            remaining = int((self._cooldown_until - now).total_seconds() / 60)
+        if TikTokNotifyCog._cooldown_until and now < TikTokNotifyCog._cooldown_until:
+            remaining = int((TikTokNotifyCog._cooldown_until - now).total_seconds() / 60)
             print(f"⏳ クールダウン中（残り約{remaining}分）、スキップします")
             return
 
@@ -162,21 +163,17 @@ class TikTokNotifyCog(commands.Cog):
 
         video_id = latest["id"]
 
-        # メモリキャッシュで二重通知を防ぐ（ファイルより確実）
-        if video_id in self._notified_ids:
+        # クラス変数で重複チェック（再ロード後も有効）
+        if video_id in TikTokNotifyCog._notified_ids:
             return
 
-        # 新しい動画が見つかった場合のみ通知
         await self.send_discord_notification(latest)
 
-        # メモリとファイル両方に保存
-        self._notified_ids.add(video_id)
+        TikTokNotifyCog._notified_ids.add(video_id)
         self.save_last_video_id(video_id)
 
-        # クールダウン開始
-        from datetime import timedelta
-        self._cooldown_until = now + timedelta(minutes=NOTIFY_COOLDOWN_MINUTES)
-        print(f"✅ 通知済み。{NOTIFY_COOLDOWN_MINUTES}分間クールダウンします（解除: {self._cooldown_until.astimezone(JST).strftime('%H:%M')} JST）")
+        TikTokNotifyCog._cooldown_until = now + timedelta(minutes=NOTIFY_COOLDOWN_MINUTES)
+        print(f"✅ 通知済み。{NOTIFY_COOLDOWN_MINUTES}分間クールダウンします（解除: {TikTokNotifyCog._cooldown_until.astimezone(JST).strftime('%H:%M')} JST）")
 
     @check_tiktok.before_loop
     async def before_check(self):

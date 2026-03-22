@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import sqlite3
+import math
 import os
 import matplotlib.pyplot as plt
 from matplotlib import font_manager, rcParams
@@ -65,11 +66,7 @@ def fetch_stats():
 # =====================
 def generate_graph():
     rows = fetch_stats()
-
-    # 全結果を0で初期化
     counts = {r: 0 for r in RESULTS}
-
-    # DBの値を反映
     for result, count in rows:
         if result in counts:
             counts[result] = count
@@ -77,14 +74,34 @@ def generate_graph():
     labels = list(counts.keys())
     values = list(counts.values())
 
+    max_count = max(values) if any(values) else 10
+
+    # 刻み幅計算
+    raw = max_count / 10  # 目安として最大値の10分の1を使用
+    magnitude = 10 ** math.floor(math.log10(max(raw, 1)))
+    normalized = raw / magnitude
+    interval = (1 if normalized <= 1 else 2 if normalized <= 2 else 5 if normalized <= 5 else 10) * magnitude
+    interval = int(interval)
+    y_max = math.ceil(max_count / interval) * interval
+
     plt.figure(figsize=(10, 5))
-    plt.bar(labels, values)
+    bars = plt.bar(labels, values)
     plt.title("おみくじ結果 統計")
     plt.xlabel("結果")
     plt.ylabel("回数")
+    plt.yticks(range(0, y_max + interval, interval))
+    plt.ylim(0, y_max * 1.08)  # ラベルが棒の上に収まるよう上端を少し広げる
 
-    max_count = max(values) if values else 0
-    plt.yticks(range(0, max_count + 1, 1))
+    # 棒の上に数値ラベル
+    for bar, val in zip(bars, values):
+        if val > 0:
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + y_max * 0.01,
+                str(val),
+                ha="center", va="bottom",
+                fontsize=10, fontweight="bold"
+            )
 
     plt.tight_layout()
     plt.savefig(IMG_PATH)
