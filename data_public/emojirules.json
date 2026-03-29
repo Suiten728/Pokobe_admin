@@ -1,0 +1,14 @@
+{
+  "color": "#57f287",
+  "hide": false,
+  "content": [
+    {"type": "title", "text": "絵文字 命名規則"},
+    {"type": "des",   "text": "絵文字を登録する際は以下の命名規則に従って操作してください。"},
+    {"type": "lineL"},
+    {"type": "des",   "text": "### 📌 基本ルール\n- 使用できる文字は半角英数字・アンダースコア（_）のみ\n- 先頭は必ず英字から始めること\n- 最大32文字以内\n- 大文字・小文字は区別されます"},
+    {"type": "lineS"},
+    {"type": "des",   "text": "### ✅ 命名例\n`iroha_smile` `kazama_wave` `holo_heart` `iroha_lol_v2`"},
+    {"type": "lineS"},
+    {"type": "des",   "text": "### ❌ 使用禁止\n- 不適切・差別的な表現を含む名前\n- 他サーバー・ブランドの商標をそのまま使用した名前\n- 意味が不明瞭で管理しにくい名前"}
+  ]
+}
