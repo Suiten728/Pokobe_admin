@@ -67,9 +67,10 @@ class NoCopy:
 
 # ── ロゴ画像ブロック ────────────────────────────────────────────────────────
 
-def _logo_gallery() -> discord.ui.MediaGallery:
-    return discord.ui.MediaGallery(
-        discord.ui.MediaGalleryItem(media=f"attachment://{IMAGE_FILENAME}"),
+def _logo_gallery():
+    return discord.ui.Section(
+        discord.ui.TextDisplay("**ExpressionEditorSystem**"),
+        accessory=discord.ui.Thumbnail(media=f"attachment://{IMAGE_FILENAME}"),
     )
 
 
@@ -458,7 +459,6 @@ def _make_main_view() -> discord.ui.LayoutView:
 
     class MainView(discord.ui.LayoutView):
         container = discord.ui.Container(
-            discord.ui.TextDisplay("**ExpressionEditorSystem**"),
             _logo_gallery(),
             discord.ui.TextDisplay(SYSTEM_DESC),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
@@ -484,7 +484,6 @@ def _make_notes_view() -> discord.ui.LayoutView:
 
     class NotesView(discord.ui.LayoutView):
         container = discord.ui.Container(
-            discord.ui.TextDisplay("**ExpressionEditorSystem**"),
             _logo_gallery(),
             discord.ui.TextDisplay(SYSTEM_DESC),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
@@ -511,7 +510,6 @@ def _make_guide_view() -> discord.ui.LayoutView:
 
     class GuideView(discord.ui.LayoutView):
         container = discord.ui.Container(
-            discord.ui.TextDisplay("**ExpressionEditorSystem**"),
             _logo_gallery(),
             discord.ui.TextDisplay(SYSTEM_DESC),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
