@@ -1,29 +1,32 @@
-# cogs/ees/expression_editor.py
+# cogs/systems/ees/expression_editor.py
 # ExpressionEditorSystem (EES) — discord.py 2.6.4 / Components V2 LayoutView
 # ============================================================================
 #
 # .env に以下を設定してください:
-#   EES_CI_ROLE_ID      = 運営ロールのID（0 = 全員許可）
-#   EES_YOUTUBE_URL     = ガイド動画の YouTube URL
-#   EES_EMOJI_RULE_URL  = 絵文字命名規則ページの URL
+#   CI_ROLE_ID      = 運営ロールのID（0 = 全員許可）
+#   EES_YOUTUBE_URL = ガイド動画の YouTube URL
 #
-# assets/main/ees_logo.png にロゴ画像を配置してください。
+# ロゴ画像  : assets/main/ees_logo.png
+# ルール JSON: data_public/ess/emojirules.json
+#              data_public/ess/stickerrules.json
+#              data_public/ess/sbrules.json
 # ============================================================================
 
 from __future__ import annotations
 
+import json
 import os
 import traceback
+from pathlib import Path
+from typing import Any
 
 import discord
 from discord.ext import commands
 
 # ── .env 設定値 ────────────────────────────────────────────────────────────
-# ※ bot.py 側で load_dotenv() 済み前提。未設定時のデフォルトも明示。
 
-CI_ROLE_ID: int     = int(os.getenv("EES_CI_ROLE_ID", "0"))
-YOUTUBE_URL: str    = os.getenv("EES_YOUTUBE_URL", "https://www.youtube.com/watch?v=AAAAAA")
-EMOJI_RULE_URL: str = os.getenv("EES_EMOJI_RULE_URL", "https://example.com")
+CI_ROLE_ID: int  = int(os.getenv("CI_ROLE_ID", "0"))
+YOUTUBE_URL: str = os.getenv("EES_YOUTUBE_URL", "https://www.youtube.com/watch?v=AAAAAA")
 
 IMAGE_PATH: str     = "assets/main/ees_logo.png"
 IMAGE_FILENAME: str = "ees_logo.png"
@@ -32,6 +35,13 @@ SYSTEM_DESC: str = (
     "ExpressionEditorSystem(EES)は絵文字・ステッカー・サウンドボードを"
     "簡易的に編集可能な運営メンバー限定のシステムです。"
 )
+
+# ルール JSON パス
+_RULES_PATH: dict[str, str] = {
+    "emoji":   "data_public/ess/emojirules.json",
+    "sticker": "data_public/ess/stickerrules.json",
+    "sb":      "data_public/ess/sbrules.json",
+}
 
 # Discordのブースト段階ごとのステッカー上限
 _STICKER_LIMITS: dict[int, int] = {0: 5, 1: 15, 2: 30, 3: 60}
@@ -48,25 +58,14 @@ def _has_ci_role(member: discord.Member) -> bool:
 
 # ── NoCopy ミックスイン ─────────────────────────────────────────────────────
 # LayoutView は container をクラス変数として deepcopy するため、
-# asyncio.Future を間接的に保持するオブジェクト（cog, bot など）を
-# 持つコンポーネントには必ずこのミックスインを付ける。
+# cog / bot を間接的に保持するコンポーネントには必ずこのミックスインを付ける。
 
 class NoCopy:
     def __deepcopy__(self, memo):
         return self
 
 
-# ── ロゴ画像ブロック生成ヘルパー ────────────────────────────────────────────
-#
-# discord.py 2.6.4 の Components V2 では MediaGallery が利用可能です。
-# もし AttributeError が発生する場合は、以下のように Section + Thumbnail に変更:
-#
-#   discord.ui.Section(
-#       discord.ui.TextDisplay("**ExpressionEditorSystem**"),
-#       accessory=discord.ui.Thumbnail(media=f"attachment://{IMAGE_FILENAME}"),
-#   )
-#
-# その場合、タイトルテキストとロゴが左右に並ぶレイアウトになります。
+# ── ロゴ画像ブロック ────────────────────────────────────────────────────────
 
 def _logo_gallery() -> discord.ui.MediaGallery:
     return discord.ui.MediaGallery(
@@ -74,9 +73,78 @@ def _logo_gallery() -> discord.ui.MediaGallery:
     )
 
 
+# ── JSON ルール読み込み ─────────────────────────────────────────────────────
+
+def _load_rules_json(path: str) -> dict[str, Any]:
+    """
+    ルール JSON を読み込んで返す。
+    ファイルが存在しない・不正な場合はフォールバックデータを返す。
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {
+            "color": "#ffffff",
+            "hide": True,
+            "content": [
+                {"type": "title", "text": "ルールファイルが見つかりません"},
+                {"type": "des",   "text": f"`{path}` が存在しません。\n管理者に連絡してください。"},
+            ],
+        }
+    except json.JSONDecodeError as e:
+        return {
+            "color": "#ed4245",
+            "hide": False,
+            "content": [
+                {"type": "title", "text": "JSONパースエラー"},
+                {"type": "des",   "text": f"`{path}` の書式が不正です。\n```\n{e}\n```"},
+            ],
+        }
+
+
+def _build_rule_components(data: dict[str, Any]) -> list:
+    """
+    JSON の content 配列を discord.py コンポーネントのリストに変換する。
+
+    対応する type:
+      "title" → TextDisplay(**太字**)
+      "des"   → TextDisplay（Markdown そのまま）
+      "lineL" → Separator(large)
+      "lineS" → Separator(small)
+
+    注意: content 内ではコンポーネント系（Button, Select）は使用禁止。
+    戻るボタン一式（Separator large + ActionRow）は呼び出し元が付け足す。
+    """
+    components: list = []
+    for i, item in enumerate(data.get("content", [])):
+        t = item.get("type", "")
+        if t == "title":
+            text = item.get("text", "")
+            components.append(discord.ui.TextDisplay(f"**{text}**"))
+        elif t == "des":
+            # 複数 des が存在してもリスト上は別要素なので重複しない
+            text = item.get("text", "")
+            components.append(discord.ui.TextDisplay(text))
+        elif t == "lineL":
+            components.append(
+                discord.ui.Separator(spacing=discord.SeparatorSpacing.large)
+            )
+        elif t == "lineS":
+            components.append(
+                discord.ui.Separator(spacing=discord.SeparatorSpacing.small)
+            )
+        # 未知の type は無視（将来の拡張に備えて警告だけ出す）
+        else:
+            print(f"[EES] 未知の type: '{t}' (index={i}) in {data}")
+    return components
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # ボタン定義
 # ────────────────────────────────────────────────────────────────────────────
+
+# ── メインボード用 ──────────────────────────────────────────────────────────
 
 class _NotesButton(NoCopy, discord.ui.Button):
     def __init__(self):
@@ -118,14 +186,16 @@ class _GuideButton(NoCopy, discord.ui.Button):
             await interaction.response.send_message(f"エラー: {e}", ephemeral=True)
 
 
+# ── 注意事項・ガイド → メイン に戻るボタン ──────────────────────────────────
+
 class _BackToMainButton(NoCopy, discord.ui.Button):
-    """注意事項・ガイド・各エディタ共通の「戻る」ボタン。"""
+    """注意事項・ガイド共通の「戻る」ボタン（メインボードに戻る）。"""
     def __init__(self):
         super().__init__(
             label="戻る",
             emoji="◀",
             style=discord.ButtonStyle.secondary,
-            custom_id="ees_back_btn",
+            custom_id="ees_back_to_main_btn",
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -139,15 +209,115 @@ class _BackToMainButton(NoCopy, discord.ui.Button):
             await interaction.response.send_message(f"エラー: {e}", ephemeral=True)
 
 
-class _EmojiRuleButton(discord.ui.Button):
-    """.env の URL へ飛ぶリンクボタン（コールバックなし）。"""
+# ── エディタ → メイン に戻るボタン（エディタ内の「戻る」） ──────────────────
+
+class _BackEditorToMainButton(NoCopy, discord.ui.Button):
+    """各エディタ画面からメインボードに戻るボタン。"""
     def __init__(self):
         super().__init__(
-            label="絵文字名ルール",
-            emoji="📌",
-            style=discord.ButtonStyle.link,
-            url=EMOJI_RULE_URL,
+            label="戻る",
+            emoji="◀",
+            style=discord.ButtonStyle.secondary,
+            custom_id="ees_editor_back_btn",
         )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        try:
+            file = discord.File(IMAGE_PATH, filename=IMAGE_FILENAME)
+            await interaction.response.edit_message(
+                view=_make_main_view(), attachments=[file]
+            )
+        except Exception as e:
+            traceback.print_exc()
+            await interaction.response.send_message(f"エラー: {e}", ephemeral=True)
+
+
+# ── ルールボタン（エディタ → 命名規則ビューへ）─────────────────────────────
+# 各エディタで別の custom_id を持つことで、ルールビューの back ボタンが
+# どのエディタに戻ればよいかを判別できる。
+
+class _EmojiRuleButton(NoCopy, discord.ui.Button):
+    def __init__(self):
+        super().__init__(
+            label="命名時のルール",
+            emoji="📌",
+            style=discord.ButtonStyle.danger,
+            custom_id="ees_emoji_rule_btn",
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        try:
+            view = _make_rule_view("emoji")
+            await interaction.response.edit_message(view=view, attachments=[])
+        except Exception as e:
+            traceback.print_exc()
+            await interaction.response.send_message(f"エラー: {e}", ephemeral=True)
+
+
+class _StickerRuleButton(NoCopy, discord.ui.Button):
+    def __init__(self):
+        super().__init__(
+            label="命名時のルール",
+            emoji="📌",
+            style=discord.ButtonStyle.danger,
+            custom_id="ees_sticker_rule_btn",
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        try:
+            view = _make_rule_view("sticker")
+            await interaction.response.edit_message(view=view, attachments=[])
+        except Exception as e:
+            traceback.print_exc()
+            await interaction.response.send_message(f"エラー: {e}", ephemeral=True)
+
+
+class _SBRuleButton(NoCopy, discord.ui.Button):
+    def __init__(self):
+        super().__init__(
+            label="命名時のルール",
+            emoji="📌",
+            style=discord.ButtonStyle.danger,
+            custom_id="ees_sb_rule_btn",
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        try:
+            view = _make_rule_view("sb")
+            await interaction.response.edit_message(view=view, attachments=[])
+        except Exception as e:
+            traceback.print_exc()
+            await interaction.response.send_message(f"エラー: {e}", ephemeral=True)
+
+
+# ── ルールビュー → 各エディタ に戻るボタン ──────────────────────────────────
+
+class _BackRuleToEditorButton(discord.ui.Button):
+    """
+    ルールビューからエディタに戻るボタン。
+    editor_type: "emoji" | "sticker" | "sb"
+
+    cog / bot を保持しないため NoCopy 不要。
+    コールバック内でギルドデータを再取得してエディタビューを再構築する。
+    """
+
+    def __init__(self, editor_type: str):
+        self._editor_type = editor_type
+        super().__init__(
+            label="戻る",
+            emoji="◀",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"ees_rule_back_{editor_type}",
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        guild = interaction.guild
+        try:
+            view = _build_editor_view(guild, self._editor_type)
+            await interaction.response.edit_message(view=view, attachments=[])
+        except Exception as e:
+            traceback.print_exc()
+            await interaction.response.send_message(f"エラー: {e}", ephemeral=True)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -169,36 +339,13 @@ class _CategorySelect(NoCopy, discord.ui.Select):
     async def callback(self, interaction: discord.Interaction) -> None:
         guild  = interaction.guild
         choice = self.values[0]
+        # セレクト value → editor_type の変換
+        _val_map = {"emoji": "emoji", "sticker": "sticker", "soundboard": "sb"}
+        editor_type = _val_map.get(choice, "emoji")
 
         try:
-            if choice == "emoji":
-                normal = len([e for e in guild.emojis if not e.animated])
-                anime  = len([e for e in guild.emojis if e.animated])
-                limit  = guild.emoji_limit
-                view   = _make_emoji_editor_view(normal, anime, limit, limit)
-                await interaction.response.edit_message(view=view, attachments=[])
-
-            elif choice == "sticker":
-                limit   = _STICKER_LIMITS.get(guild.premium_tier, 5)
-                _anim   = {
-                    discord.StickerFormatType.apng,
-                    discord.StickerFormatType.lottie,
-                    discord.StickerFormatType.gif,
-                }
-                stickers = guild.stickers   # キャッシュから取得（API 呼び出しなし）
-                normal   = len([s for s in stickers if s.format not in _anim])
-                anime    = len([s for s in stickers if s.format in _anim])
-                view     = _make_sticker_editor_view(normal, anime, limit, limit)
-                await interaction.response.edit_message(view=view, attachments=[])
-
-            elif choice == "soundboard":
-                sounds = getattr(guild, "soundboard_sounds", [])
-                count  = len(sounds)
-                # サウンドボード上限はブースト段階に関わらず 8（カスタム音声）
-                limit  = 8
-                view   = _make_sb_editor_view(count, limit)
-                await interaction.response.edit_message(view=view, attachments=[])
-
+            view = _build_editor_view(guild, editor_type)
+            await interaction.response.edit_message(view=view, attachments=[])
         except Exception as e:
             traceback.print_exc()
             if not interaction.response.is_done():
@@ -266,24 +413,55 @@ class _SBActionSelect(NoCopy, discord.ui.Select):
 
 
 # ────────────────────────────────────────────────────────────────────────────
+# エディタビュー構築ヘルパー（カテゴリセレクト・ルールback 共用）
+# ────────────────────────────────────────────────────────────────────────────
+
+def _build_editor_view(guild: discord.Guild, editor_type: str) -> discord.ui.LayoutView:
+    """
+    guild からリアルタイムのデータを取得し、対応するエディタビューを生成する。
+    editor_type: "emoji" | "sticker" | "sb"
+    """
+    if editor_type == "emoji":
+        normal = len([e for e in guild.emojis if not e.animated])
+        anime  = len([e for e in guild.emojis if e.animated])
+        limit  = guild.emoji_limit
+        return _make_emoji_editor_view(normal, anime, limit, limit)
+
+    elif editor_type == "sticker":
+        limit = _STICKER_LIMITS.get(guild.premium_tier, 5)
+        _anim = {
+            discord.StickerFormatType.apng,
+            discord.StickerFormatType.lottie,
+            discord.StickerFormatType.gif,
+        }
+        stickers = guild.stickers
+        normal   = len([s for s in stickers if s.format not in _anim])
+        anime    = len([s for s in stickers if s.format in _anim])
+        return _make_sticker_editor_view(normal, anime, limit, limit)
+
+    else:  # "sb"
+        sounds = getattr(guild, "soundboard_sounds", [])
+        count  = len(sounds)
+        return _make_sb_editor_view(count, 8)
+
+
+# ────────────────────────────────────────────────────────────────────────────
 # View ファクトリ関数
 #
 # LayoutView の container はメタクラスがクラス定義時にスキャンする「クラス変数」
-# でなければならない。動的な値（カウント等）を埋め込むため、ファクトリ関数内で
-# クラスを毎回定義するパターンを採用している（dcv2_notes.md 参照）。
+# でなければならない。動的な値を埋め込むため、ファクトリ関数内でクラスを
+# 毎回定義するパターンを使う（dcv2_notes.md ファクトリ関数パターン参照）。
 # ────────────────────────────────────────────────────────────────────────────
 
 def _make_main_view() -> discord.ui.LayoutView:
-    """メインボード（カテゴリ選択・注意事項・ガイドへの入口）。"""
+    """メインボード。"""
 
     class MainView(discord.ui.LayoutView):
         container = discord.ui.Container(
-            # ── ヘッダー ──
             discord.ui.TextDisplay("**ExpressionEditorSystem**"),
             _logo_gallery(),
             discord.ui.TextDisplay(SYSTEM_DESC),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
-            # ── 横並びリンク行（Section = テキスト左・ボタン右） ──
             discord.ui.Section(
                 discord.ui.TextDisplay("利用上の注意事項："),
                 accessory=_NotesButton(),
@@ -293,10 +471,9 @@ def _make_main_view() -> discord.ui.LayoutView:
                 accessory=_GuideButton(),
             ),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
-            # ── カテゴリ選択 ──
             discord.ui.TextDisplay("以下のプルダウンから編集したいカテゴリーを選択してください。"),
             discord.ui.ActionRow(_CategorySelect()),
-            accent_colour=discord.Colour.from_str("#00b0f4"),   # シアン
+            accent_colour=discord.Colour.from_str("#00b0f4"),
         )
 
     return MainView(timeout=None)
@@ -321,16 +498,16 @@ def _make_notes_view() -> discord.ui.LayoutView:
                 "- わかりやすい名前にすること\n"
                 "- 不適切な画像や音楽は使用しないこと"
             ),
-            discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
+            discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
             discord.ui.ActionRow(_BackToMainButton()),
-            accent_colour=discord.Colour.from_str("#ed4245"),   # 赤
+            accent_colour=discord.Colour.from_str("#ed4245"),
         )
 
     return NotesView(timeout=None)
 
 
 def _make_guide_view() -> discord.ui.LayoutView:
-    """利用方法ガイドボード（緑アクセント）。YouTube URL は .env から。"""
+    """利用方法ガイドボード（緑アクセント）。"""
 
     class GuideView(discord.ui.LayoutView):
         container = discord.ui.Container(
@@ -339,13 +516,13 @@ def _make_guide_view() -> discord.ui.LayoutView:
             discord.ui.TextDisplay(SYSTEM_DESC),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
             discord.ui.TextDisplay(
-                f"## 📽 利用方法ガイド\n"
-                f"以下のYouTubeリンクをタップすることでガイド動画を見ることができます。\n\n"
+                "## 📽 利用方法ガイド\n"
+                "以下のYouTubeリンクをタップすることでガイド動画を見ることができます。\n\n"
                 f"{YOUTUBE_URL}"
             ),
-            discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
+            discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
             discord.ui.ActionRow(_BackToMainButton()),
-            accent_colour=discord.Colour.from_str("#57f287"),   # 緑
+            accent_colour=discord.Colour.from_str("#57f287"),
         )
 
     return GuideView(timeout=None)
@@ -361,29 +538,25 @@ def _make_emoji_editor_view(
 
     class EmojiEditorView(discord.ui.LayoutView):
         container = discord.ui.Container(
-            # ── ヘッダー ──
             discord.ui.TextDisplay("**EmojiEditor**"),
             discord.ui.TextDisplay(
                 "絵文字を編集するモードです。命名規則に沿って絵文字をBot名義で追加・削除・置き換えが可能です。"
             ),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
-            # ── 現在の登録数 ──
             discord.ui.TextDisplay(
                 f"現在登録済みの絵文字数：　{emoji_count}個/{emoji_max}個\n"
                 f"アニメーション絵文字数：　{anime_count}個/{anime_max}個"
             ),
-            # ── 命名規則リンク（横並び） ──
             discord.ui.Section(
                 discord.ui.TextDisplay("命名規則を見る："),
                 accessory=_EmojiRuleButton(),
             ),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
-            # ── 操作一覧ラベル ──
             discord.ui.TextDisplay("＋ 追加\nー 削除\n🔄 置き換え"),
             discord.ui.ActionRow(_EmojiActionSelect()),
-            discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
-            discord.ui.ActionRow(_BackToMainButton()),
-            accent_colour=discord.Colour.from_str("#57f287"),   # 緑
+            discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
+            discord.ui.ActionRow(_BackEditorToMainButton()),
+            accent_colour=discord.Colour.from_str("#57f287"),
         )
 
     return EmojiEditorView(timeout=None)
@@ -401,7 +574,7 @@ def _make_sticker_editor_view(
         container = discord.ui.Container(
             discord.ui.TextDisplay("**StickerEditor**"),
             discord.ui.TextDisplay(
-                "ステッカーを編集するモードです。命名規則に沿って絵文字をBot名義で追加・削除・置き換えが可能です。"
+                "ステッカーを編集するモードです。命名規則に沿ってステッカーをBot名義で追加・削除・置き換えが可能です。"
             ),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
             discord.ui.TextDisplay(
@@ -410,14 +583,14 @@ def _make_sticker_editor_view(
             ),
             discord.ui.Section(
                 discord.ui.TextDisplay("命名規則を見る："),
-                accessory=_EmojiRuleButton(),
+                accessory=_StickerRuleButton(),
             ),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
             discord.ui.TextDisplay("＋ 追加\nー 削除\n🔄 置き換え"),
             discord.ui.ActionRow(_StickerActionSelect()),
-            discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
-            discord.ui.ActionRow(_BackToMainButton()),
-            accent_colour=discord.Colour.from_str("#5865f2"),   # Discord ブルー
+            discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
+            discord.ui.ActionRow(_BackEditorToMainButton()),
+            accent_colour=discord.Colour.from_str("#5865f2"),
         )
 
     return StickerEditorView(timeout=None)
@@ -430,7 +603,7 @@ def _make_sb_editor_view(sb_count: int, sb_max: int) -> discord.ui.LayoutView:
         container = discord.ui.Container(
             discord.ui.TextDisplay("**SoundBoardEditor**"),
             discord.ui.TextDisplay(
-                "サウンドボードを編集するモードです。命名規則に沿って絵文字をBot名義で追加・削除・置き換えが可能です。"
+                "サウンドボードを編集するモードです。命名規則に沿って音声をBot名義で追加・削除・置き換えが可能です。"
             ),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
             discord.ui.TextDisplay(
@@ -438,17 +611,52 @@ def _make_sb_editor_view(sb_count: int, sb_max: int) -> discord.ui.LayoutView:
             ),
             discord.ui.Section(
                 discord.ui.TextDisplay("命名規則を見る："),
-                accessory=_EmojiRuleButton(),
+                accessory=_SBRuleButton(),
             ),
             discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
             discord.ui.TextDisplay("＋ 追加\nー 削除\n🔄 置き換え"),
             discord.ui.ActionRow(_SBActionSelect()),
-            discord.ui.Separator(spacing=discord.SeparatorSpacing.small),
-            discord.ui.ActionRow(_BackToMainButton()),
-            accent_colour=discord.Colour.from_str("#9b59b6"),   # 紫
+            discord.ui.Separator(spacing=discord.SeparatorSpacing.large),
+            discord.ui.ActionRow(_BackEditorToMainButton()),
+            accent_colour=discord.Colour.from_str("#9b59b6"),
         )
 
     return SBEditorView(timeout=None)
+
+
+def _make_rule_view(editor_type: str) -> discord.ui.LayoutView:
+    """
+    data_public/ess/<editor_type>rules.json を読み込み、
+    LayoutView をその場で構築して返す。
+
+    editor_type: "emoji" | "sticker" | "sb"
+
+    JSON の content を上から順に TextDisplay / Separator に変換し、
+    末尾に「Separator(large) + 戻るボタン」を自動付加する。
+    コンポーネント系（Button, Select）は content 内で使用禁止。
+    """
+    json_path = _RULES_PATH[editor_type]
+    data      = _load_rules_json(json_path)
+
+    # ── メタ情報 ──────────────────────────────────────────────────────────
+    color_str = data.get("color", "#ffffff")
+    hide      = data.get("hide", False)
+    # hide=True → accent_colour なし（ボーダー非表示）
+    accent = None if hide else discord.Colour.from_str(color_str)
+
+    # ── content → コンポーネントリスト ────────────────────────────────────
+    components = _build_rule_components(data)
+
+    # ── 末尾に戻るボタン一式を付加（JSON には書かない） ──────────────────
+    # 画像スクリーンショットと同じく「Separator(large) + 灰色戻るボタン」
+    components.append(discord.ui.Separator(spacing=discord.SeparatorSpacing.large))
+    components.append(discord.ui.ActionRow(_BackRuleToEditorButton(editor_type)))
+
+    # ── ファクトリパターンでクラス変数として container を定義 ─────────────
+    class RuleView(discord.ui.LayoutView):
+        container = discord.ui.Container(*components, accent_colour=accent)
+
+    return RuleView(timeout=None)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -459,26 +667,25 @@ class ExpressionEditorCog(commands.Cog, name="ExpressionEditor"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    # ── on_ready: 永続 View の登録 ───────────────────────────────────────
-    # Bot 再起動後もボタン・セレクトが反応するよう、全 custom_id を登録する。
-    # ファクトリ関数はダミー値で呼び出す（guild データは callback 時に取得）。
-
     @commands.Cog.listener()
     async def on_ready(self) -> None:
+        # ── 全 View を永続登録 ──────────────────────────────────────────
+        # ダミー値で各ビューを生成して custom_id を bot に認識させる。
+        # 実際のギルドデータは各コールバック時に取得する。
         self.bot.add_view(_make_main_view())
         self.bot.add_view(_make_notes_view())
         self.bot.add_view(_make_guide_view())
         self.bot.add_view(_make_emoji_editor_view(0, 0, 50, 50))
         self.bot.add_view(_make_sticker_editor_view(0, 0, 5, 5))
         self.bot.add_view(_make_sb_editor_view(0, 8))
-
-    # ── !ees コマンド ─────────────────────────────────────────────────────
+        self.bot.add_view(_make_rule_view("emoji"))
+        self.bot.add_view(_make_rule_view("sticker"))
+        self.bot.add_view(_make_rule_view("sb"))
 
     @commands.command(name="ees", aliases=["EES"])
     async def ees(self, ctx: commands.Context) -> None:
         """ExpressionEditorSystem を起動します（CIロール限定）。"""
 
-        # 権限チェック
         if not _has_ci_role(ctx.author):
             await ctx.reply(
                 "⛔ このコマンドは運営メンバー（CIロール所持者）限定です。",
@@ -486,7 +693,6 @@ class ExpressionEditorCog(commands.Cog, name="ExpressionEditor"):
             )
             return
 
-        # 画像ファイル存在確認
         if not os.path.exists(IMAGE_PATH):
             await ctx.reply(
                 f"⚠️ ロゴ画像が見つかりません: `{IMAGE_PATH}`\n"
@@ -505,10 +711,6 @@ class ExpressionEditorCog(commands.Cog, name="ExpressionEditor"):
                 mention_author=False,
             )
 
-
-# ────────────────────────────────────────────────────────────────────────────
-# setup
-# ────────────────────────────────────────────────────────────────────────────
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(ExpressionEditorCog(bot))
