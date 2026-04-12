@@ -1,4 +1,5 @@
-footer {
+.main-footer {
+  justify-content: center;
   background-color: #45a1ff;
   color: black;
 }
